@@ -6,11 +6,6 @@
  The old IS15 stopped working completely and Simrad would not repair it or provide
  any details of the board for it to be repaired. 
 
- Needs Font 2 (also Font 4 if using large centered scale label)
-
-  #########################################################################
-  ###### DON'T FORGET TO UPDATE THE User_Setup.h FILE IN THE LIBRARY ######
-  #########################################################################
  */
 
 #include <WiFi.h>
@@ -22,6 +17,8 @@
 #include <TFT_eSPI.h> // Hardware-specific library
 #include "Free_Fonts.h" // Include the header file attached to this sketch
 
+// Custom fonts
+#include "FreeSansBold32pt7b.h"
 
 // HTML strings
 #include <style.html>
@@ -72,6 +69,8 @@ typedef struct {
   char      type;
   String label;
   bool      doneLabel;
+  uint32_t  oldx;
+  uint32_t  oldw;
 } Digital;
 
 Digital digital[] = {
@@ -84,39 +83,6 @@ Digital digital[] = {
 uint32_t updateTime = 0;       // time for next update
 
 String label[6] = {"idx0","idx1","idx2","idx3"};
-
-int d = 0;
-
- int xpos =  0;
-  int ypos = 40;
-void fontTest() {
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-  tft.setCursor(xpos, ypos);    // Set cursor near top left corner of screen
-
-  tft.setTextFont(GLCD);     // Select the orginal small GLCD font by using NULL or GLCD
-  tft.println();             // Move cursor down a line
-  tft.print("Original GLCD font");    // Print the font name onto the TFT screen
-  tft.println();
-  tft.println();
-
-  tft.setFreeFont(FSB9);   // Select Free Serif 9 point font, could use:
-  // tft.setFreeFont(&FreeSerif9pt7b);
-  tft.println();          // Free fonts plot with the baseline (imaginary line the letter A would sit on)
-  // as the datum, so we must move the cursor down a line from the 0,0 position
-  tft.print("Serif Bold 9pt");  // Print the font name onto the TFT screen
-
-  tft.setFreeFont(FSB12);       // Select Free Serif 12 point font
-  tft.println();                // Move cursor down a line
-  tft.print("Serif Bold 12pt"); // Print the font name onto the TFT screen
-
-  tft.setFreeFont(FSB18);       // Select Free Serif 12 point font
-  tft.println();                // Move cursor down a line
-  tft.print("Serif Bold 18pt"); // Print the font name onto the TFT screen
-
-  tft.setFreeFont(FSS24);       // Select Free Serif 24 point font
-  tft.println();                // Move cursor down a line
-  tft.print("Sans Serif Bold 24pt"); // Print the font name onto the TFT screen
-}
 
 // Main task for plotting the meters using data previously read
 // Draw the display elements then loop forever
@@ -194,35 +160,48 @@ void updateDigital(int idx)
     case 'f':
     //dtostrf(value/1.0, 3, 1, buf);
     value += 0.2345;
-    snprintf(buf, 5, "%3.1f", value);
-    Serial.printf("Value = %f %3.1f\n", value, value);
+    snprintf(buf, 7, "%3.2f", value);
+    Serial.printf("Value = %f %3.2f\n", value, value);
     break;
 
     case 'i':
     default:
-      snprintf(buf, 5, "%d", (int)value);   // we can fit 4 digits per cell.
+      snprintf(buf, 6, "%d", (int)value);   // we can fit 4 digits per cell.
       break;
   }
 
-  uint16_t mainHeight = 8;
-
-  // Blank the area where the new text is written using the font height
-  uint32_t height = tft.fontHeight(mainHeight);
- 
-  tft.fillRect(xorig + X_MARGIN, yorig+height, 230, height, TFT_GREEN);
- 
-  // Update 
-
-  tft.drawCentreString(buf, xorig+TFT_HEIGHT / 4, yorig + height, mainHeight);
-//   tft.setCursor(xorig + TFT_HEIGHT/4, yorig + 50);
-// tft.setFreeFont(FSS24);       // Select Free Serif 24 point font
-//  tft.print(buf); // Print the font name onto the TFT screen
-
- // Draw the label one time only
+// Draw the label one time only
  if(!digital[idx].doneLabel) {
   tft.drawCentreString(label[idx], xorig + TFT_HEIGHT / 4, yorig + 20, 4);
   digital[idx].doneLabel = true;
  }
+
+  // Set the required font for the main text
+  tft.setFreeFont(&FreeSansBold32pt7b);       // Select Free Serif 24 point font
+
+  // Calculate the position of the text to simplify things later
+  // The string is centered and drawn in the middle of the bottom half of the
+  // box
+
+  uint32_t  tw = tft.textWidth(buf, GFXFF);       // Width of text
+  uint32_t  th = tft.fontHeight(GFXFF);           // height of text
+  uint32_t  tx = xorig + TFT_HEIGHT / 4 - tw / 2;          // Position of bottom left
+  uint32_t  ty = yorig + th;     
+  uint32_t  oldx = digital[idx].oldx;
+  uint32_t  oldw = digital[idx].oldw; 
+  
+  if(idx == 0) {
+  Serial.printf("tx %d ty %d\n", tx, ty);
+  }
+  // Blank the area where the new text is written using the font height and]
+  // the previous width and x
+ // tft.fillRect(xorig + X_MARGIN, yorig+height, 230, height, TFT_GREEN);
+  tft.fillRect(oldx, ty, oldw, th, TFT_WHITE);
+  digital[idx].oldx = tx;
+  digital[idx].oldw = tw;
+ 
+  // Update 
+  tft.drawString(buf, tx, ty, GFXFF);
 }
 
 
@@ -409,7 +388,7 @@ void wifiManagerTask(void * param)
     sleep(1);
     digital[0].value++;
     digital[1].value+=2;
-    digital[2].value = rand() / 1.234;
+    digital[2].value = rand();
     digital[3].value+=4;
   }
 }
