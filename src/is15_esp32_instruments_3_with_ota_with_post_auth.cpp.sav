@@ -16,6 +16,7 @@
 #include <HTTPClient.h>
 #include <TFT_eSPI.h> // Hardware-specific library
 #include "Free_Fonts.h" // Include the header file attached to this sketch
+#include <rotary_encoder.h>
 
 // Custom fonts
 #include "FreeSansBold32pt7b.h"
@@ -71,6 +72,7 @@ typedef struct {
   bool      doneLabel;
   uint32_t  oldx;
   uint32_t  oldw;
+  double oldvalue;
 } Digital;
 
 Digital digital[] = {
@@ -92,6 +94,8 @@ void metersTask(void * param) {
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
 
+  rotary_setup();
+
   //fontTest();
   //while(1) {
   //  sleep(1);
@@ -106,7 +110,7 @@ void metersTask(void * param) {
   Serial.println("Done setting up meters...");
 
   for(;;) {
-    const TickType_t xDelay = 100 / portTICK_PERIOD_MS;
+    const TickType_t xDelay = 50 / portTICK_PERIOD_MS;
     vTaskDelay(xDelay);
     runMeters();
   }
@@ -115,14 +119,10 @@ void metersTask(void * param) {
 
 
 void runMeters() {
-  if (updateTime <= millis()) {
-    updateTime = millis() + 1000; // Delay to limit speed of update
- 
     updateDigital(IDX0);
     updateDigital(IDX1); 
     updateDigital(IDX2); 
     updateDigital(IDX3); 
-  }
 }
 
 
@@ -156,6 +156,10 @@ void updateDigital(int idx)
   int32_t xorig = digital[idx].x;
   int32_t yorig = digital[idx].y;
 
+  if(value == digital[idx].oldvalue) {
+    return;
+  }
+  digital[idx].oldvalue = value;
   switch(vtype) {
     case 'f':
     //dtostrf(value/1.0, 3, 1, buf);
@@ -386,10 +390,16 @@ void wifiManagerTask(void * param)
     //runMeters();
     //readSk();
     sleep(1);
-    digital[0].value++;
-    digital[1].value+=2;
-    digital[2].value = rand();
-    digital[3].value+=4;
+    //digital[0].value++;
+    //digital[1].value+=2;
+    //digital[2].value = rand();
+    //digital[3].value+=4;
+
+    long val = rotary_getvalue();
+    digital[0].value = val;
+    digital[1].value = val*1.1234;
+    digital[2].value = val*1024;
+    digital[3].value+=val;
   }
 }
 
