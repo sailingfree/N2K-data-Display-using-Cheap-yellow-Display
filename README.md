@@ -33,6 +33,7 @@ Pin Number 	Identification 	Description
 25 	GND 	Ground
 26 	TP_CS 	Touch panel chip select signal, low level selects touch panel 
 
+==SPI TFT SETUP++
 Pin 1   3.3v        RED         5V
 Pin 2   5V          ORANGE      3v3
 Pin 6   0V          BLACK       Ov
