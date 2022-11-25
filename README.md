@@ -34,9 +34,8 @@ Pin Number 	Identification 	Description
 26 	TP_CS 	Touch panel chip select signal, low level selects touch panel 
 
 ==SPI TFT SETUP==
---------------------------------------
 |TFT pin| Function | Wire | EXP32 Pin|
---------------------------------------
+|-------|----------|------|----------|
 |Pin 1  | 3.3v     |   RED      |   5V|
 |Pin 2  | 5V       |  ORANGE    | 3v3|
 |Pin 6  | 0V       |  BLACK     | Ov|
@@ -48,7 +47,6 @@ Pin Number 	Identification 	Description
 |Pin 23 | CLK      |  Dark Green| GP18|
 |Pin 24 | LCD_CS   |  GREY      | GP15|
 |Pin 26 | TP_CS    |  Light Green| GP22|
-----------------------------------------
 
 Rotary Encoder
 #define ROTARY_ENCODER_A_PIN 32
