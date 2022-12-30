@@ -92,3 +92,20 @@ Smooth font enabled
 Display SPI frequency = 15.00
 Touch SPI frequency   = 2.50
 ```
+----------------------
+Parallel interface
+
+| TFT pin | Function  | Wire        | EXP32 Pin |
+| LCD_D0  |           | green       | 12
+| LCD_D1  | Data      | wh/brown
+| LCD_D2  |           | green
+| LCD_D3  |           | wh/brown
+| LCD_D4  |           | wh/blue
+| LCD_D5  |           | blue
+| LCD_D6  |           | orang
+| LCD_D7  |           | brown
+| LCD_RST |           | green
+| LCD_CS  |           | wh/brown
+| LCD_RS  |           | brown
+| LCD_WR  |           | orange
+| LCD_RD  |           | blue
