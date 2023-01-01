@@ -119,6 +119,8 @@ void Indicator::setValue(const char *value) {
 // Define the screen
 Indicator *ind[4];
 
+lv_obj_t * vlabel;
+
 void metersSetup() {
     rotary_setup();
     lv_init();
@@ -203,14 +205,16 @@ void metersSetup() {
     lv_obj_t * container = lv_cont_create(cont, NULL);
     lv_obj_set_style_local_border_width(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
     lv_obj_set_style_local_border_color(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_cont_set_layout(container, LV_LAYOUT_CENTER);
+    lv_cont_set_layout(container, LV_LAYOUT_COLUMN_MID);
     lv_cont_set_fit(container, LV_FIT_NONE);
-    lv_obj_set_size(container, 480 / 2, 320 / 3 * 2);
+    lv_obj_set_size(container, 480 / 2, (320 / 6 * 5));
     lv_obj_set_style_local_margin_left(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_style_local_margin_right(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_pos(container, TFT_HEIGHT/2, 0);
 
-    ind[3] = new Indicator(cont, "RPM", TFT_HEIGHT /2, 2 * TFT_WIDTH / 3);
+ 
+
+//    ind[3] = new Indicator(cont, "RPM", TFT_HEIGHT /2, 2 * TFT_WIDTH / 3);
 /*
     label = lv_label_create(container, NULL);
     lv_obj_set_style_local_text_font(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_18);
@@ -221,13 +225,23 @@ void metersSetup() {
     lv_label_set_text(text, "---");
     text->event_cb = my_event_cb;
     */
+    uint8_t major = 8;
+    uint8_t minor = (36);
     gauge = lv_gauge_create(container, NULL);
     lv_gauge_set_value(gauge,0, 0);
     lv_gauge_set_range(gauge, 0, 35);
-    lv_gauge_set_scale(gauge, 270, 8, 8);
+    lv_gauge_set_scale(gauge, 270, minor, major);
     lv_gauge_set_critical_value(gauge, 30);
     lv_obj_set_style_local_text_font(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
                         &lv_font_montserrat_16);
+    lv_obj_align(gauge, container, LV_ALIGN_IN_TOP_MID, 0, 0);
+
+   // And the Value label
+    vlabel = lv_label_create(container, NULL);
+    lv_label_set_text(vlabel, "0000");
+    lv_obj_align(vlabel, container, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_local_text_font(vlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
+                    &lv_font_montserrat_32);
 
 
 //    lv_obj_align(gauge, NULL, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 0);
@@ -266,12 +280,14 @@ void metersWork(void) {
 
 // Set the value of a meter using a double
 void setMeter(uint16_t idx, double value) {
-    if(idx < 4) {
+    if(idx < 3) {
     String v(value, 2);
     ind[idx]->setValue(v.c_str());
     }
     if(idx == 3) {
+        String lvalue(value, 0);
         lv_gauge_set_value(gauge, 0, value / 100);
+        lv_label_set_text(vlabel, lvalue.c_str());
     }
 }
 
