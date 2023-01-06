@@ -54,7 +54,11 @@ bool read_encoder(lv_indev_drv_t *indev, lv_indev_data_t *data) {
 bool my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
     uint16_t touchX, touchY;
 
+#if defined HAS_TOUCH
     bool touched = tft.getTouch(&touchX, &touchY, 600);
+#else
+    bool touched = false;
+#endif
 
     if (!touched) {
         data->state = LV_INDEV_STATE_REL;
@@ -130,7 +134,7 @@ void metersSetup() {
 
     //   tft.begin(); /* TFT init */
     tft.init();
-    tft.setRotation(1); /* Landscape orientation */
+    tft.setRotation(3); /* Landscape orientation */
 
     lv_disp_buf_init(&disp_buf, buf, NULL, 320 * 10);
 
