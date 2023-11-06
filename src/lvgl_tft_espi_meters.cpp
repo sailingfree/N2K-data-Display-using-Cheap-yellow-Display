@@ -2,9 +2,35 @@
 #include <lvgl.h>
 #include <rotary_encoder.h>
 
+// A library for interfacing with the touch screen
+//
+// Can be installed from the library manager (Search for "XPT2046")
+//https://github.com/PaulStoffregen/XPT2046_Touchscreen
+#include <XPT2046_Touchscreen.h>
+
+
+// ----------------------------
+// Touch Screen pins
+// ----------------------------
+
+// The CYD touch uses some non default
+// SPI pins
+
+#define XPT2046_IRQ 36
+#define XPT2046_MOSI 32
+#define XPT2046_MISO 39
+#define XPT2046_CLK 25
+#define XPT2046_CS 33
+
+// ----------------------------
+
+SPIClass mySpi = SPIClass(HSPI);
+XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
+
+
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 static lv_disp_buf_t disp_buf;
-static lv_color_t buf[320 * 10];
+static lv_color_t buf[TFT_WIDTH * 10];
 lv_obj_t *gauge;
 
 #if USE_LV_LOG != 0
@@ -48,36 +74,35 @@ bool read_encoder(lv_indev_drv_t *indev, lv_indev_data_t *data) {
     return false;  // Never any more data epected from this device
 }
 
-/*Read the touchpad*/
-/* from here https://github.com/lvgl/lvgl/blob/master/examples/arduino/LVGL_Arduino/LVGL_Arduino.ino
- */
-bool my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
-    uint16_t touchX, touchY;
+// Helper
+#define MAX_TOUCH_X (4096 / TFT_HEIGHT)
+#define MAX_TOUCH_Y (4096 / TFT_WIDTH)
 
-#if defined HAS_TOUCH
-    bool touched = tft.getTouch(&touchX, &touchY, 600);
-#else
-    bool touched = false;
-#endif
+void printTouchToSerial(TS_Point p) {
+  Serial.print("Pressure = ");
+  Serial.print(p.z);
+  Serial.print(", x = ");
+  Serial.print(p.x/MAX_TOUCH_X);
+  Serial.print(", y = ");
+  Serial.print(p.y/MAX_TOUCH_Y);
+  Serial.println();
+}
 
-    if (!touched) {
-        data->state = LV_INDEV_STATE_REL;
-    } else {
-        data->state = LV_INDEV_STATE_PR;
+/*
+* Read the touch panel
+*/
 
-        /*Set the coordinates*/
-        data->point.x = touchX;
-        data->point.y = touchY;
-
-        Serial.print("Data x ");
-        Serial.println(touchX);
-
-        Serial.print("Data y ");
-        Serial.println(touchY);
+bool read_touch(lv_indev_drv_t *indev, lv_indev_data_t *data) {
+    if (ts.tirqTouched() && ts.touched()) {
+        TS_Point p = ts.getPoint();
+        printTouchToSerial(p);
+        data->point.x = p.x / MAX_TOUCH_X;
+        data->point.y = p.y / MAX_TOUCH_Y;
+        data->state = LV_INDEV_STATE_PR or LV_INDEV_STATE_REL;
     }
-
     return false;
 }
+
 
 static void my_event_cb(lv_obj_t *obj, lv_event_t event) {
     Serial.printf("EV %d\n", event);
@@ -100,7 +125,7 @@ Indicator::Indicator(lv_obj_t *parent, const char *name, uint32_t x, uint32_t y)
     lv_obj_set_style_local_border_color(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
     lv_cont_set_layout(container, LV_LAYOUT_CENTER);
     lv_cont_set_fit(container, LV_FIT_NONE);
-    lv_obj_set_size(container, 480 / 2, 320 / 3);
+    lv_obj_set_size(container, TFT_HEIGHT / 2, TFT_WIDTH / 3);
     lv_obj_set_style_local_margin_left(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_style_local_margin_right(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
 
@@ -109,7 +134,7 @@ Indicator::Indicator(lv_obj_t *parent, const char *name, uint32_t x, uint32_t y)
     lv_label_set_text(label, name);
 
     text = lv_label_create(container, NULL);
-    lv_obj_set_style_local_text_font(text, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_48);
+    lv_obj_set_style_local_text_font(text, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_32);
     lv_label_set_text(text, "---");
     text->event_cb = my_event_cb;
 
@@ -123,7 +148,15 @@ void Indicator::setValue(const char *value) {
 // Define the screen
 Indicator *ind[4];
 
-lv_obj_t * vlabel;
+lv_obj_t * vlabel, *ilabel;
+
+void touch_init() {
+    // Start the SPI for the touch screen and init the TS library
+    mySpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+    ts.begin(mySpi);
+    ts.setRotation(3);
+
+}
 
 void metersSetup() {
     rotary_setup();
@@ -131,18 +164,20 @@ void metersSetup() {
 #if USE_LV_LOG != 0
     lv_log_register_print_cb(my_print); /* register print function for debugging */
 #endif
+    touch_init();
+
 
     //   tft.begin(); /* TFT init */
     tft.init();
     tft.setRotation(3); /* Landscape orientation */
 
-    lv_disp_buf_init(&disp_buf, buf, NULL, 320 * 10);
+    lv_disp_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * 10);
 
     /*Initialize the display*/
     lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = 480;
-    disp_drv.ver_res = 320;
+    disp_drv.hor_res = TFT_HEIGHT;
+    disp_drv.ver_res = TFT_WIDTH;
     disp_drv.flush_cb = my_disp_flush;
     disp_drv.buffer = &disp_buf;
     lv_disp_drv_register(&disp_drv);
@@ -154,23 +189,23 @@ void metersSetup() {
     indev_drv.read_cb = read_encoder;
     lv_indev_t *rotary = lv_indev_drv_register(&indev_drv);
 
-    /*Initialize the touch input device driver*/
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = my_touchpad_read;
-    lv_indev_t *touch = lv_indev_drv_register(&indev_drv);
-
     // Create the group for the rotary
     lv_group_t *g = lv_group_create();
 
     // And for the touch
+    lv_indev_drv_t touch_dev;
+    lv_indev_drv_init(&touch_dev);
+    touch_dev.type = LV_INDEV_TYPE_POINTER;
+    touch_dev.read_cb = read_touch;
+    lv_indev_t *touch = lv_indev_drv_register(&touch_dev);
+
     lv_group_t *t = lv_group_create();
 
-    // Create a container
+    // Create a container for the whole screen
     lv_obj_t *cont;
     cont = lv_cont_create(lv_scr_act(), NULL);
     lv_obj_set_auto_realign(cont, true);                   /*Auto realign when the size changes*/
-    lv_obj_align_origo(cont, NULL, LV_ALIGN_CENTER, 0, 0); /*This parametrs will be sued when realigned*/
+    lv_obj_align_origo(cont, NULL, LV_ALIGN_CENTER, 0, 0); /*This parametrs will be used when re-aligned*/
     lv_cont_set_fit(cont, LV_FIT_PARENT);
     lv_cont_set_layout(cont, LV_LAYOUT_OFF);
     lv_obj_set_style_local_pad_left(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
@@ -181,24 +216,7 @@ void metersSetup() {
     lv_obj_set_style_local_margin_left(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_style_local_margin_right(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
 
-    /* Create simple label */
-    // lv_obj_t *label = lv_label_create(cont, NULL);
-    // lv_label_set_text(label, "Hello Arduino! (V7.0.X)");
-    // lv_obj_align(label, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0);
 
-    //  lv_obj_t * m1 = lv_cont_create(cont, NULL);
-    //  lv_obj_set_style_local_border_width(m1, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
-    //  lv_obj_set_style_local_border_color(m1, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    //  lv_cont_set_layout(m1, LV_LAYOUT_CENTER);
-    //  lv_cont_set_fit(m1, LV_FIT_TIGHT);
-    //  lv_obj_t * t1 = lv_label_create(m1, NULL);
-    //  lv_obj_set_style_local_text_font(t1, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_18);
-    //  lv_label_set_text(t1, "House Voltage");
-    //  lv_obj_set_size(t1, 200,100);
-
-    //  lv_obj_t * t2 = lv_label_create(m1, t1);
-    //  lv_obj_set_style_local_text_font(t2, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_38);
-    //  lv_label_set_text(t2,"12.62V");
 
     ind[0] = new Indicator(cont, "House Voltage", 0, 0);
     ind[1] = new Indicator(cont, "House Current",0, TFT_WIDTH / 3);
@@ -211,27 +229,24 @@ void metersSetup() {
     lv_obj_set_style_local_border_color(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
     lv_cont_set_layout(container, LV_LAYOUT_COLUMN_MID);
     lv_cont_set_fit(container, LV_FIT_NONE);
-    lv_obj_set_size(container, 480 / 2, (320 / 6 * 5));
+    lv_obj_set_size(container, TFT_HEIGHT / 2, (TFT_WIDTH / 6 * 5));
     lv_obj_set_style_local_margin_left(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_style_local_margin_right(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_pos(container, TFT_HEIGHT/2, 0);
+    lv_obj_set_style_local_pad_inner(container, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 2);
 
- 
 
-//    ind[3] = new Indicator(cont, "RPM", TFT_HEIGHT /2, 2 * TFT_WIDTH / 3);
-/*
-    label = lv_label_create(container, NULL);
-    lv_obj_set_style_local_text_font(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_18);
-    lv_label_set_text(label, name);
-
-    text = lv_label_create(container, NULL);
-    lv_obj_set_style_local_text_font(text, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_48);
-    lv_label_set_text(text, "---");
-    text->event_cb = my_event_cb;
-    */
-    uint8_t major = 8;
-    uint8_t minor = (36);
+    // Gauge for the RPM
+    uint8_t major = 8;              // Major ticks - 500RPM each
+    uint8_t minor = (36);           // max is 3500 RPM
     gauge = lv_gauge_create(container, NULL);
+    lv_obj_set_size(gauge, TFT_HEIGHT/2, TFT_HEIGHT/2);
+    lv_obj_set_style_local_pad_inner(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 10);
+    lv_obj_set_style_local_pad_left(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_pad_right(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_pad_top(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_pad_bottom(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+
     lv_gauge_set_value(gauge,0, 0);
     lv_gauge_set_range(gauge, 0, 35);
     lv_gauge_set_scale(gauge, 270, minor, major);
@@ -245,36 +260,22 @@ void metersSetup() {
     lv_label_set_text(vlabel, "0000");
     lv_obj_align(vlabel, container, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_local_text_font(vlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
-                    &lv_font_montserrat_32);
+                    &lv_font_montserrat_24);
+
+    // Info at the bottom
+    ilabel = lv_label_create(cont, NULL);
+    lv_label_set_text(ilabel, "000.000.000.000");
+    lv_obj_align(ilabel, cont, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0);
+    lv_obj_set_style_local_text_font(ilabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
+                    &lv_font_montserrat_12);
+
+    // Event callback
+    lv_obj_set_event_cb(gauge, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[0]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[1]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[2]->container, my_event_cb);   /*Assign an event callback*/
 
 
-//    lv_obj_align(gauge, NULL, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 0);
-
-    // Create a slider
-    // lv_obj_t * slider = lv_slider_create(cont, NULL);
-    // lv_obj_align(slider, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 0, 0);
-
-    // Spin box
-    //  lv_obj_t *spinbox = lv_spinbox_create(cont, NULL);
-    //   lv_obj_align(spinbox, NULL, LV_ALIGN_IN_TOP_RIGHT, 0, 0);
-    //   lv_spinbox_set_range(spinbox, 0, 1000);
-
-    //  lv_group_add_obj(g, slider);
-    //  lv_group_add_obj(g, spinbox);
-    //  lv_group_add_obj(t, slider);
-
-    //  lv_group_focus_obj(spinbox);
-
-    // And the rotary encoder
-    //  lv_indev_set_group(rotary, g);
-
-    // touch device
-    // lv_indev_set_group(touch, t);
-
-    // Set to edit mode ready for first event
-    // lv_group_set_editing(g, true);
-
-    lv_refr_now(NULL);
 }
 
 // Update the meters. Called regularly from the main loop/task
@@ -285,8 +286,8 @@ void metersWork(void) {
 // Set the value of a meter using a double
 void setMeter(uint16_t idx, double value) {
     if(idx < 3) {
-    String v(value, 2);
-    ind[idx]->setValue(v.c_str());
+        String v(value, 2);
+        ind[idx]->setValue(v.c_str());
     }
     if(idx == 3) {
         String lvalue(value, 0);
@@ -298,4 +299,8 @@ void setMeter(uint16_t idx, double value) {
 // Set the value of a meter using a string
 void setMeter(uint16_t idx, String & string) {
     ind[idx]->setValue(string.c_str());
+}
+
+void setilabel(String & str) {
+    lv_label_set_text(ilabel, str.c_str());
 }

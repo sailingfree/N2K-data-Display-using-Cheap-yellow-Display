@@ -68,8 +68,8 @@ Frequency    = 240MHz
 Transactions = Yes
 Interface    = SPI
 Display driver = 9486
-Display width  = 320
-Display height = 480
+Display width  = 240
+Display height = 320
 
 MOSI    = GPIO 23
 MISO    = GPIO 19

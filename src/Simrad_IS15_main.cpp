@@ -146,11 +146,7 @@ void adminSetup(void) {
         macAddress += String(chipid[i], HEX);
     }
 
-   // Set the on board LED off
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, LOW);
-
-    // Initialise the preferences
+       // Initialise the preferences
     GwPrefsInit();
 
     // Generate the hostname by appending the last two octets of the mac address to make it unique
@@ -273,6 +269,7 @@ bool connectWifi() {
                 WifiIP = WiFi.localIP().toString();
                 Console->printf("Connected to %s\n", wifiCreds[i].ssid.c_str());
                 hadconnection = true;
+                setilabel(WifiIP);
                 return true;
             } else {
                 Console->printf("Can't connect to %s\n", wifiCreds[i].ssid.c_str());
@@ -321,37 +318,39 @@ void wifiSetup(void) {
     wifiCreds[1].ssid = GwGetVal(SSID2);
     wifiCreds[1].pass = GwGetVal(SSPW2);
 
-    while(! connectWifi() && --retries) {
+    while (!connectWifi() && --retries) {
         sleep(1);
     }
 
-    if(WiFi.status() != WL_CONNECTED) {
+    if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Failed to connect to WiFi please check creds");
-    } else {
-    Serial.println("WiFi connected..!");
-    Serial.print("Got IP: ");
-    Serial.println(WiFi.localIP());
-
-    if (MDNS.begin(host_name.c_str())) {
-        Console->print("* MDNS responder started. Hostname -> ");
-        Console->println(host_name);
-    } else {
-        Console->printf("Failed to start the MDNS respondern");
     }
-    
-    MDNS.addService("http", "tcp", 80);  // Web server
+    else {
+        Serial.println("WiFi connected..!");
+        Serial.print("Got IP: ");
+        Serial.println(WiFi.localIP());
 
-    Console->println("Adding telnet");
-    MDNS.addService("telnet", "tcp", 23);  // Telnet server of RemoteDebug, register as telnet
+        if (MDNS.begin(host_name.c_str())) {
+            Console->print("* MDNS responder started. Hostname -> ");
+            Console->println(host_name);
+        }
+        else {
+            Console->printf("Failed to start the MDNS respondern");
+        }
 
-   // Start the telnet server
-    telnet.begin();
+        MDNS.addService("http", "tcp", 80);  // Web server
 
-    // start the YD UDP socket
-    ydtoN2kUDP.begin(4444);
+        Console->println("Adding telnet");
+        MDNS.addService("telnet", "tcp", 23);  // Telnet server of RemoteDebug, register as telnet
 
-    // Start the OTA service
-    initializeOTA(Console);
+        // Start the telnet server
+        telnet.begin();
+
+        // start the YD UDP socket
+        ydtoN2kUDP.begin(4444);
+
+        // Start the OTA service
+        initializeOTA(Console);
     }
 }
 
@@ -417,6 +416,8 @@ void setup() {
     metersSetup();          // Graphics setup
     wifiSetup();            // Conect to an AP for the YD data
     webServerSetup();       // remote management
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH);
 }
 
 // loop calling the work functions

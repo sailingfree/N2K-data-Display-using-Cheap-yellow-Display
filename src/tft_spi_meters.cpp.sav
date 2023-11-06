@@ -1,0 +1,151 @@
+#include <ArduinoJson.h>
+#include <SPI.h>
+#include <TFT_eSPI.h>  // Hardware-specific library
+#include "Free_Fonts.h"  // Include the header file attached to this sketch
+// Custom fonts
+#include "FreeSansBold32pt7b.h"
+#include <tftscreen.h>
+#include <tft_espi_meters.h>
+#include <rotary_encoder.h>
+
+// Prototypes
+static void updateDigital(int idx);
+static void digitalMeter(int idx);
+static void runMeters();
+
+// Instatiate required objects
+// The TFT library
+TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
+
+// Define the meters
+Digital digital[] = {
+    {0.0, X0, Y0, 'f'},
+    {0.0, X1, Y1, 'i'},
+    {0.0, X2, Y2, 'f'},
+    {0.0, X3, Y3, 'i'},
+};
+
+uint16_t maxidx = sizeof(digital) / sizeof(digital[0]);
+
+String label[] = {"House Volt", "House Current", "Engine Volt", "RPM"};
+
+uint32_t updateTime = 0;  // time for next update
+
+// Main task for plotting the meters using data previously read
+// Draw the display elements then loop forever
+void metersSetup(void) {
+    Serial.println("Starting the meter draw task...");
+    tft.init();
+    tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
+
+    rotary_setup();
+
+    digitalMeter(HOUSEV);  // Draw digitalue meter
+    digitalMeter(HOUSEI);  // Draw digitalue meter
+    digitalMeter(ENGINEV);  // Draw digitalue meter
+    digitalMeter(RPM);  // Draw digitalue meter
+
+    updateTime = millis();  // Next update time
+    Serial.println("Done setting up meters...");
+
+}
+
+void metersWork() {
+        runMeters();
+}
+
+// Set the value of a digital meter struct checking teh index is in range
+void setMeter(uint16_t idx, double value) {
+    if(idx < 0 || idx > maxidx) {
+        Serial.printf("Error. idx %d out of range\n");
+    } else {
+        digital[idx].value = value;
+    }
+    return;
+}
+
+static void runMeters() {
+    updateDigital(HOUSEV);
+    updateDigital(HOUSEI);
+    updateDigital(ENGINEV);
+    updateDigital(RPM);
+}
+
+// #########################################################################
+//  Draw the digital meter on the screen
+// #########################################################################
+static void digitalMeter(int idx) {
+    // Meter outline
+    tft.fillRect(digital[idx].x, digital[idx].y, 239, 160, TFT_GREY);
+
+    //
+    tft.fillRect(digital[idx].x + X_MARGIN, digital[idx].y + 3, (TFT_HEIGHT / 2) - (2 * X_MARGIN), (TFT_WIDTH / 2) - Y_MARGIN, TFT_WHITE);
+
+    tft.setTextColor(TFT_BLACK);  // Text colour
+}
+
+// #########################################################################
+// Update the value on screen
+// This function is blocking while we update the value
+// #########################################################################
+static void updateDigital(int idx) {
+    tft.setTextColor(TFT_BLACK, TFT_WHITE);
+    char buf[8];
+    memset(buf, 0, sizeof(buf));
+
+    double value = digital[idx].value;
+    int32_t vtype = digital[idx].type;
+    int32_t xorig = digital[idx].x;
+    int32_t yorig = digital[idx].y;
+
+    if (value == digital[idx].oldvalue) {
+        return;
+    }
+    digital[idx].oldvalue = value;
+    switch (vtype) {
+        case 'f':
+            // dtostrf(value/1.0, 3, 1, buf);
+            snprintf(buf, 7, "%3.2f", value);
+            //    Serial.printf("Value = %f %3.2f\n", value, value);
+            break;
+
+        case 'i':
+        default:
+            snprintf(buf, 6, "%d", (int)value);  // we can fit 4 digits per cell.
+            break;
+    }
+
+    // Draw the label one time only
+    if (!digital[idx].doneLabel) {
+        tft.drawCentreString(label[idx], xorig + TFT_HEIGHT / 4, yorig + 20, 4);
+        digital[idx].doneLabel = true;
+    }
+
+    // Set the required font for the main text
+    tft.setFreeFont(&FreeSansBold32pt7b);  // Select Free Serif 24 point font
+
+    // Calculate the position of the text to simplify things later
+    // The string is centered and drawn in the middle of the bottom half of the
+    // box
+
+    uint32_t tw = tft.textWidth(buf, GFXFF);        // Width of text
+    uint32_t th = tft.fontHeight(GFXFF);            // height of text
+    uint32_t tx = xorig + TFT_HEIGHT / 4 - tw / 2;  // Position of bottom left
+    uint32_t ty = yorig + th;
+    uint32_t oldx = digital[idx].oldx;
+    uint32_t oldw = digital[idx].oldw;
+
+    if (idx == 0) {
+        // Serial.printf("tx %d ty %d\n", tx, ty);
+    }
+    // Blank the area where the new text is written using the font height and]
+    // the previous width and x
+    // tft.fillRect(xorig + X_MARGIN, yorig+height, 230, height, TFT_GREEN);
+    tft.fillRect(oldx, ty, oldw, th, TFT_WHITE);
+    digital[idx].oldx = tx;
+    digital[idx].oldw = tw;
+
+    // Update
+    tft.drawString(buf, tx, ty, GFXFF);
+}

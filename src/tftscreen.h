@@ -33,6 +33,7 @@ typedef struct {
 void metersSetup();
 void metersWork();
 void setMeter(uint16_t, double);
+void setilabel(String&);
 
 
 typedef enum {
