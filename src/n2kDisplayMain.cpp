@@ -1,11 +1,5 @@
 /*
 
- Replacement instrument for a Simrad IS15 combi display.
-
- Uses an ESP32 and a TFT display to completely replace the inards of the IS15.
- The old IS15 stopped working completely and Simrad would not repair it or provide
- any details of the board for it to be repaired.
-
  This device reads NMEA2000 messages over WiFi in YD format and uses those to display
  the required data.
 
