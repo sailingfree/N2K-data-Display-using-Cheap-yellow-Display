@@ -26,6 +26,8 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <N2kMsg.h>
 
 
+#define N2K_PKT_SIZE 1460
+
 class YDtoN2kUDP {
 
     public: 
@@ -35,5 +37,5 @@ class YDtoN2kUDP {
 
     private:
         WiFiUDP wifiUdp;
-        char packetBuffer[255];     //buffer to hold incoming packet
+        char packetBuffer[N2K_PKT_SIZE];     //buffer to hold incoming packet
 };
