@@ -108,8 +108,13 @@ static void my_event_cb(lv_obj_t *obj, lv_event_t event) {
     Serial.printf("EV %d\n", event);
 }
 
+// This class implements a rectangle comntainer which has a main display for 
+// eg voltage, a smaller header. It is designed to work with the lvgl library
+// on an ESP32 or similar. 
+// It has a fixed size.
 class Indicator {
    public:
+    // Constructor: 
     Indicator(lv_obj_t *parent, const char *label, uint32_t x, uint32_t y);
     void setValue(const char *value);
 
@@ -119,6 +124,7 @@ class Indicator {
     lv_obj_t *text;
 };
 
+// Constructor. Binds to the parent object.
 Indicator::Indicator(lv_obj_t *parent, const char *name, uint32_t x, uint32_t y) {
     container = lv_cont_create(parent, NULL);
     lv_obj_set_style_local_border_width(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
@@ -154,7 +160,7 @@ void touch_init() {
     // Start the SPI for the touch screen and init the TS library
     mySpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
     ts.begin(mySpi);
-    ts.setRotation(3);
+    ts.setRotation(1);
 
 }
 
@@ -169,7 +175,7 @@ void metersSetup() {
 
     //   tft.begin(); /* TFT init */
     tft.init();
-    tft.setRotation(3); /* Landscape orientation */
+    tft.setRotation(1); /* Landscape orientation */
 
     lv_disp_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * 10);
 
