@@ -61,7 +61,7 @@ bool YDtoN2kUDP::readYD(tN2kMsg &msgout)
     }
 
     // read the packet into packetBufffer
-    int len = wifiUdp.read(packetBuffer, 255);
+    int len = wifiUdp.read(packetBuffer, N2K_PKT_SIZE);
     if (len > 0) {
       packetBuffer[len] = 0;
     }
