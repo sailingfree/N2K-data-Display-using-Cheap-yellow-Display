@@ -354,9 +354,12 @@ void wifiWork(void) {
         tN2kMsg msg;
 
         if(WiFi.status() == WL_CONNECTED) {
-                    ydtoN2kUDP.readYD(msg);
+                while(ydtoN2kUDP.readYD(msg)) {
 
         N2kMsgMap[msg.PGN]++;
+        if(msg.PGN) {
+        //    Console->printf("MSG PGN %d\n", msg.PGN);
+        }
         switch (msg.PGN) {
             case 127508: {
                 // Battery Status
@@ -397,6 +400,7 @@ void wifiWork(void) {
             default:
                 // Catch any messages we don't expect
                break;
+        }
         }
         }
  }
