@@ -61,3 +61,6 @@ void GwPrint(Stream &s);
 
 // Hostname advertised by the network
 #define GWHOST "gwhost"
+
+// The last selected screen number
+#define GWSCREEN "screen"

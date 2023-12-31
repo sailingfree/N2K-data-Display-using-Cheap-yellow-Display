@@ -263,7 +263,8 @@ bool connectWifi() {
                 WifiIP = WiFi.localIP().toString();
                 Console->printf("Connected to %s\n", wifiCreds[i].ssid.c_str());
                 hadconnection = true;
-                setilabel(WifiIP);
+                setilabel(SCR_ENGINE, WifiIP);
+                setilabel(SCR_NAV, WifiIP);
                 return true;
             } else {
                 Console->printf("Can't connect to %s\n", wifiCreds[i].ssid.c_str());
@@ -351,16 +352,16 @@ void wifiSetup(void) {
 // loop reading the YD data, decode the N2K messages 
 // and update the screen copies.
 void wifiWork(void) {
-        tN2kMsg msg;
+    tN2kMsg msg;
 
-        if(WiFi.status() == WL_CONNECTED) {
-                while(ydtoN2kUDP.readYD(msg)) {
+    if (WiFi.status() == WL_CONNECTED) {
+        while (ydtoN2kUDP.readYD(msg)) {
 
-        N2kMsgMap[msg.PGN]++;
-        if(msg.PGN) {
-        //    Console->printf("MSG PGN %d\n", msg.PGN);
-        }
-        switch (msg.PGN) {
+            N2kMsgMap[msg.PGN]++;
+            if (msg.PGN) {
+                //    Console->printf("MSG PGN %d\n", msg.PGN);
+            }
+            switch (msg.PGN) {
             case 127508: {
                 // Battery Status
                 unsigned char instance = 0xff;
@@ -371,13 +372,13 @@ void wifiWork(void) {
                 bool s = ParseN2kPGN127508(msg, instance, voltage, current, temp, SID);
 
                 switch (instance) {
-                    case 0:
-                        setMeter(HOUSEV, voltage);
-                        setMeter(HOUSEI, current);
-                        break;
-                    case 1:
-                        setMeter(ENGINEV, voltage);;
-                        break;
+                case 0:
+                    setMeter(SCR_ENGINE, HOUSEV, voltage, "V");
+                    setMeter(SCR_ENGINE, HOUSEI, current, "A");
+                    break;
+                case 1:
+                    setMeter(SCR_ENGINE, ENGINEV, voltage, "V");;
+                    break;
                 }
             } break;
 
@@ -392,18 +393,56 @@ void wifiWork(void) {
                 double boost;
                 int8_t trim;
                 bool s = ParseN2kPGN127488(msg, instance, speed, boost, trim);
-
-                setMeter(RPM, speed);
-                setMeter(3, speed);
+                setGauge(SCR_ENGINE, speed / 100);
+                String es(speed, 0);
+                es += "rpm";
+                setVlabel(SCR_ENGINE, es);
             }
-            
+                       break;
+
+            case 130306: {
+                //Wind
+                double windSpeed;
+                double windAngle;
+                unsigned char instance;
+                tN2kWindReference ref;
+                bool s = ParseN2kPGN130306(msg, instance, windSpeed, windAngle, ref);
+                String ws(windSpeed);
+                ws += "kts";
+                setVlabel(SCR_NAV,  ws);
+                setGauge(SCR_NAV, RadToDeg(windAngle));
+                }
+                       break;
+
+            case 129026: {
+                // COG/SOG
+                unsigned char instance;
+                tN2kHeadingReference ref;
+                double hdg;
+                double sog;
+                bool s = ParseN2kPGN129026(msg, instance, ref, hdg, sog);
+                setMeter(SCR_NAV, SOG, msToKnots(sog), "kts");
+                setMeter(SCR_NAV, HDG, RadToDeg(hdg), "°");
+            }
+                break;
+
+                case 128267: {
+                    // depth;
+                    unsigned char instance;
+                    double depth;
+                    double offset;
+                    double range;
+                    bool s = ParseN2kPGN128267(msg, instance, depth, offset, range);
+                    setMeter(SCR_NAV, DEPTH, depth, "m");
+                }
+                break;
             default:
                 // Catch any messages we don't expect
-               break;
+                break;
+            }
         }
-        }
-        }
- }
+    }
+}
 
 // Initilise the modules
 void setup() {

@@ -1,6 +1,8 @@
 #include <TFT_eSPI.h>
 #include <lvgl.h>
 #include <rotary_encoder.h>
+#include <tftscreen.h>
+#include <GwPrefs.h>
 
 // A library for interfacing with the touch screen
 //
@@ -31,7 +33,7 @@ XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 static lv_disp_buf_t disp_buf;
 static lv_color_t buf[TFT_WIDTH * 10];
-lv_obj_t *gauge;
+
 
 #if USE_LV_LOG != 0
 /* Serial debugging */
@@ -40,6 +42,9 @@ void my_print(lv_log_level_t level, const char *file, uint32_t line, const char 
     Serial.flush();
 }
 #endif
+
+lv_obj_t * createEngineScreen(int screen);
+lv_obj_t * createNavScreen(int screen );
 
 /* Display flushing */
 void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
@@ -74,6 +79,14 @@ bool read_encoder(lv_indev_drv_t *indev, lv_indev_data_t *data) {
     return false;  // Never any more data epected from this device
 }
 
+// Define the screens and their data items
+Indicator * ind[SCR_MAX][6];
+lv_obj_t  * screen[SCR_MAX];
+lv_obj_t  * gauges[SCR_MAX];
+lv_obj_t  * vals[SCR_MAX];
+lv_obj_t  * infos[SCR_MAX];
+
+
 // Helper
 #define MAX_TOUCH_X (4096 / TFT_HEIGHT)
 #define MAX_TOUCH_Y (4096 / TFT_WIDTH)
@@ -95,7 +108,7 @@ void printTouchToSerial(TS_Point p) {
 bool read_touch(lv_indev_drv_t *indev, lv_indev_data_t *data) {
     if (ts.tirqTouched() && ts.touched()) {
         TS_Point p = ts.getPoint();
-        printTouchToSerial(p);
+    //    printTouchToSerial(p);
         data->point.x = p.x / MAX_TOUCH_X;
         data->point.y = p.y / MAX_TOUCH_Y;
         data->state = LV_INDEV_STATE_PR or LV_INDEV_STATE_REL;
@@ -103,26 +116,21 @@ bool read_touch(lv_indev_drv_t *indev, lv_indev_data_t *data) {
     return false;
 }
 
+static int iiscrnum = 0;    // Screen number selected
 
+// Handle the touch event.
 static void my_event_cb(lv_obj_t *obj, lv_event_t event) {
-    Serial.printf("EV %d\n", event);
+ //   Serial.printf("EV %d\n", event);
+    if(event == 7) {
+        // Key up swap screens
+        iiscrnum = (iiscrnum + 1) % SCR_MAX ;
+        lv_scr_load(screen[iiscrnum]);
+        String val(iiscrnum);
+        GwSetVal(GWSCREEN, val);
+    }
 }
 
-// This class implements a rectangle comntainer which has a main display for 
-// eg voltage, a smaller header. It is designed to work with the lvgl library
-// on an ESP32 or similar. 
-// It has a fixed size.
-class Indicator {
-   public:
-    // Constructor: 
-    Indicator(lv_obj_t *parent, const char *label, uint32_t x, uint32_t y);
-    void setValue(const char *value);
 
-   //private:
-    lv_obj_t *container;
-    lv_obj_t *label;
-    lv_obj_t *text;
-};
 
 // Constructor. Binds to the parent object.
 Indicator::Indicator(lv_obj_t *parent, const char *name, uint32_t x, uint32_t y) {
@@ -151,10 +159,7 @@ void Indicator::setValue(const char *value) {
     lv_label_set_text(text, value);
 }
 
-// Define the screen
-Indicator *ind[4];
 
-lv_obj_t * vlabel, *ilabel;
 
 void touch_init() {
     // Start the SPI for the touch screen and init the TS library
@@ -172,9 +177,15 @@ void metersSetup() {
 #endif
     touch_init();
 
+    // Get the last screen number if set and use that
+    String scrnum = GwGetVal(GWSCREEN);
+    if(scrnum != "---") {
+        iiscrnum = scrnum.toInt() % SCR_MAX;
+    }
 
     //   tft.begin(); /* TFT init */
     tft.init();
+    tft.fillRect(0, 0, TFT_WIDTH, TFT_HEIGHT, 0);
     tft.setRotation(1); /* Landscape orientation */
 
     lv_disp_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * 10);
@@ -207,9 +218,20 @@ void metersSetup() {
 
     lv_group_t *t = lv_group_create();
 
-    // Create a container for the whole screen
-    lv_obj_t *cont;
-    cont = lv_cont_create(lv_scr_act(), NULL);
+    // Create a container for the engine screen
+    screen[SCR_ENGINE] = createEngineScreen(SCR_ENGINE);
+    screen[SCR_NAV] = createNavScreen(SCR_NAV);
+
+    // Load the first screen
+    lv_scr_load(screen[iiscrnum]);
+}
+
+lv_obj_t * createEngineScreen(int scr) {
+    lv_obj_t * gauge;
+    lv_obj_t * vlabel, *ilabel;
+    lv_obj_t * screen = lv_obj_create(NULL, NULL);
+    //screen = lv_scr_act();
+    lv_obj_t * cont = lv_cont_create(screen, NULL);
     lv_obj_set_auto_realign(cont, true);                   /*Auto realign when the size changes*/
     lv_obj_align_origo(cont, NULL, LV_ALIGN_CENTER, 0, 0); /*This parametrs will be used when re-aligned*/
     lv_cont_set_fit(cont, LV_FIT_PARENT);
@@ -222,11 +244,9 @@ void metersSetup() {
     lv_obj_set_style_local_margin_left(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
     lv_obj_set_style_local_margin_right(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
 
-
-
-    ind[0] = new Indicator(cont, "House Voltage", 0, 0);
-    ind[1] = new Indicator(cont, "House Current",0, TFT_WIDTH / 3);
-    ind[2] = new Indicator(cont, "Engine Voltage", 0, 2 * TFT_WIDTH / 3);
+    ind[scr][0] = new Indicator(cont, "House Voltage", 0, 0);
+    ind[scr][1] = new Indicator(cont, "House Current",0, TFT_WIDTH / 3);
+    ind[scr][2] = new Indicator(cont, "Engine Voltage", 0, 2 * TFT_WIDTH / 3);
  
     // Create a container and a gauge
     //lv_cont_set_layout(cont, LV_LAYOUT_COLUMN_RIGHT);
@@ -260,6 +280,7 @@ void metersSetup() {
     lv_obj_set_style_local_text_font(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
                         &lv_font_montserrat_16);
     lv_obj_align(gauge, container, LV_ALIGN_IN_TOP_MID, 0, 0);
+    gauges[scr] = gauge;
 
    // And the Value label
     vlabel = lv_label_create(container, NULL);
@@ -268,21 +289,114 @@ void metersSetup() {
     lv_obj_set_style_local_text_font(vlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
                     &lv_font_montserrat_24);
 
+    vals[scr] = vlabel;
     // Info at the bottom
     ilabel = lv_label_create(cont, NULL);
     lv_label_set_text(ilabel, "000.000.000.000");
     lv_obj_align(ilabel, cont, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0);
     lv_obj_set_style_local_text_font(ilabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
                     &lv_font_montserrat_12);
+    infos[scr] = ilabel;
+    
+    // Event callback
+    lv_obj_set_event_cb(gauge, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[scr][0]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[scr][1]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[scr][2]->container, my_event_cb);   /*Assign an event callback*/
+
+    return screen;
+}
+
+lv_obj_t * createNavScreen(int scr) {
+    lv_obj_t *gauge;
+    lv_obj_t * vlabel, *ilabel;
+    lv_obj_t * screen = lv_obj_create(NULL, NULL);
+    lv_obj_t * cont = lv_cont_create(screen, NULL);
+    lv_obj_set_auto_realign(cont, true);                   /*Auto realign when the size changes*/
+    lv_obj_align_origo(cont, NULL, LV_ALIGN_CENTER, 0, 0); /*This parametrs will be used when re-aligned*/
+    lv_cont_set_fit(cont, LV_FIT_PARENT);
+    lv_cont_set_layout(cont, LV_LAYOUT_OFF);
+    lv_obj_set_style_local_pad_left(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_pad_right(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_pad_top(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_pad_bottom(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_pad_inner(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_margin_left(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_margin_right(cont, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+
+
+
+    ind[scr][0] = new Indicator(cont, "SOG", 0, 0);
+    ind[scr][1] = new Indicator(cont, "Depth",0, TFT_WIDTH / 3);
+    ind[scr][2] = new Indicator(cont, "HDG", 0, 2 * TFT_WIDTH / 3);
+ 
+    // Create a container and a gauge
+    //lv_cont_set_layout(cont, LV_LAYOUT_COLUMN_RIGHT);
+    lv_obj_t * container = lv_cont_create(cont, NULL);
+    lv_obj_set_style_local_border_width(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_border_color(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_cont_set_layout(container, LV_LAYOUT_COLUMN_MID);
+    lv_cont_set_fit(container, LV_FIT_NONE);
+    lv_obj_set_size(container, TFT_HEIGHT / 2, (TFT_WIDTH / 6 * 5));
+    lv_obj_set_style_local_margin_left(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_margin_right(container, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_pos(container, TFT_HEIGHT/2, 0);
+    lv_obj_set_style_local_pad_inner(container, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 2);
+
+
+    // Gauge for the Wind
+    uint8_t label_cnt = 5;              // Major ticks N S E W
+    uint8_t sub_div  = 8;
+    uint8_t line_cnt = line_cnt = (sub_div + 1) * (label_cnt - 1) + 1;           // Max
+   
+    static lv_style_t style;
+    lv_style_init(&style);
+    gauge = lv_gauge_create(container, NULL);
+    lv_obj_set_size(gauge, TFT_HEIGHT/2, TFT_HEIGHT/2);
+    lv_obj_set_style_local_pad_inner(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 10);
+    lv_obj_set_style_local_pad_left(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_pad_right(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_pad_top(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_pad_bottom(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
+
+    lv_gauge_set_value(gauge,0, 0);
+    lv_gauge_set_range(gauge, 1, 359);
+    lv_gauge_set_scale(gauge, 360, line_cnt, label_cnt);
+    lv_gauge_set_angle_offset(gauge, 181);
+    lv_gauge_set_critical_value(gauge, 0);
+    lv_style_set_scale_end_color(&style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
+    lv_style_set_line_color(&style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_set_style_local_text_font(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
+                        &lv_font_montserrat_16);
+    lv_obj_add_style(gauge, LV_GAUGE_PART_MAIN, &style);
+    lv_obj_align(gauge, container, LV_ALIGN_IN_TOP_MID, 0, 0);
+    gauges[scr] = gauge;
+
+   // And the Value label
+    vlabel = lv_label_create(container, NULL);
+    lv_label_set_text(vlabel, "000");
+    lv_obj_align(vlabel, container, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_local_text_font(vlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
+                    &lv_font_montserrat_24);
+    vals[scr] = vlabel;
+
+    // Info at the bottom
+    ilabel = lv_label_create(cont, NULL);
+    lv_label_set_text(ilabel, "000.000.000.000");
+    lv_obj_align(ilabel, cont, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0);
+    lv_obj_set_style_local_text_font(ilabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 
+                    &lv_font_montserrat_12);
+    infos[scr] = ilabel;
 
     // Event callback
     lv_obj_set_event_cb(gauge, my_event_cb);   /*Assign an event callback*/
-    lv_obj_set_event_cb(ind[0]->container, my_event_cb);   /*Assign an event callback*/
-    lv_obj_set_event_cb(ind[1]->container, my_event_cb);   /*Assign an event callback*/
-    lv_obj_set_event_cb(ind[2]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[scr][0]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[scr][1]->container, my_event_cb);   /*Assign an event callback*/
+    lv_obj_set_event_cb(ind[scr][2]->container, my_event_cb);   /*Assign an event callback*/
 
-
+    return screen;
 }
+
 
 // Update the meters. Called regularly from the main loop/task
 void metersWork(void) {
@@ -290,23 +404,30 @@ void metersWork(void) {
 }
 
 // Set the value of a meter using a double
-void setMeter(uint16_t idx, double value) {
+void setMeter(int scr, int idx, double value, char * units) {
+//    Serial.printf("SET %d %d %f\n", scr, idx, value);
     if(idx < 3) {
         String v(value, 2);
-        ind[idx]->setValue(v.c_str());
+        v += units;
+        ind[scr][idx]->setValue(v.c_str());
     }
-    if(idx == 3) {
+}
+
+void setGauge(int scr, double value) {
         String lvalue(value, 0);
-        lv_gauge_set_value(gauge, 0, value / 100);
-        lv_label_set_text(vlabel, lvalue.c_str());
-    }
+        lv_gauge_set_value(gauges[scr], 0, value);
 }
 
 // Set the value of a meter using a string
-void setMeter(uint16_t idx, String & string) {
-    ind[idx]->setValue(string.c_str());
+void setMeter(int scr, int idx, String & string) {
+    ind[scr][idx]->setValue(string.c_str());
 }
 
-void setilabel(String & str) {
-    lv_label_set_text(ilabel, str.c_str());
+
+void setVlabel(int scr, String & str) {
+         lv_label_set_text(vals[scr], str.c_str());
+}
+
+void setilabel(int scr, String & str) {
+    lv_label_set_text(infos[scr], str.c_str());
 }

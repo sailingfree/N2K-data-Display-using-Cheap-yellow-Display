@@ -43,9 +43,7 @@ void GwPrefsInit() {
         Reg.push_back(SSPW2);
         Reg.push_back(GWHOST);
         Reg.push_back(GWPASS);
-        Reg.push_back(ENGINEDIA);
-        Reg.push_back(ALTDIA);
-        Reg.push_back(ALTPOLES);
+        Reg.push_back(GWSCREEN);
         doneInit = true;
     }
 }

@@ -93,6 +93,7 @@ void getN2kMsgs(Stream &s)
     {
         const char * name = "unknown";
         switch(it->first) {
+
             case 127488: 
             name = "Engine Rapid";
             break;
@@ -102,6 +103,38 @@ void getN2kMsgs(Stream &s)
             case 127513:
             name = "Battery Configuration";
             break;
+            case 60928:
+            name = "IsoAddress"; break;
+            case 126992: 
+            name = "System Time"; break;
+            case 126996:
+            name = "Product Information"; break;
+            case 127250:
+            name = "Magnetic Heading"; break;
+            case 127489:
+            name = "Engine Dynamic"; break;
+            case 130306:
+            name = "Wind Data"; break;
+            case 128267:
+            name = "Depth Data"; break;
+            case 129026:
+            name = "COG/SOG"; break;
+            case 130310:
+            name = "Outside environment"; break;
+            case 130311:
+            name = "Environmental Parameters"; break;
+            case 130312: 
+            name = "Temperature"; break;
+            case 130313:
+            name = "Humidity"; break;
+            case 130314:
+            name = "Pressure"; break;
+            case 129029:
+            name = "GNSS"; break;
+            case 129539:
+            name = "GNSS DOP"; break;
+            case 129540:
+            name = "GNSS Sats in view"; break;
         }
         s.printf("%d\t%d\t%s\n", it->first, it->second, name);
         it++;
