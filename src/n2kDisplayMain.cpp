@@ -173,6 +173,7 @@ void webServerSetup(void) {
         if(WiFi.status() == WL_CONNECTED) {
 
     Serial.println("Web server started");
+    displayText("Web Server started");
     server.on("/", HTTP_GET, []() {
         server.sendHeader("Connection", "close");
         server.send(200, "text/html", loginIndex);
@@ -238,7 +239,10 @@ bool connectWifi() {
 
     for (int i = 0; i < MaxAP; i++) {
         if (wifiCreds[i].ssid != "---") {
-            Serial.printf("\nTrying %s\n", wifiCreds[i].ssid.c_str());
+            StringStream s;
+            s.printf("\nTrying %s\n", wifiCreds[i].ssid.c_str());
+            Serial.print(s.data);
+            displayText((char *)s.data.c_str());
             WiFi.disconnect();
             WiFi.mode(WIFI_OFF);
             WiFi.mode(WIFI_STA);
@@ -265,6 +269,11 @@ bool connectWifi() {
                 hadconnection = true;
                 setilabel(SCR_ENGINE, WifiIP);
                 setilabel(SCR_NAV, WifiIP);
+                String msg("AP: ");
+                msg += wifiCreds[i].ssid;
+                msg += "\nIP: ";
+                msg += WifiIP;
+                displayText((char*)msg.c_str());
                 return true;
             } else {
                 Console->printf("Can't connect to %s\n", wifiCreds[i].ssid.c_str());
@@ -300,6 +309,7 @@ void wifiCheck() {
 // Register services we use
 void wifiSetup(void) {
     Serial.println("Starting WiFi manager task...");
+    displayText("Starting WiFi...");
 
     uint32_t retries = 5;
 
@@ -319,6 +329,7 @@ void wifiSetup(void) {
 
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Failed to connect to WiFi please check creds");
+        displayText("Can't connect to wifi please check creds");
     }
     else {
         Serial.println("WiFi connected..!");
@@ -407,10 +418,13 @@ void wifiWork(void) {
                 unsigned char instance;
                 tN2kWindReference ref;
                 bool s = ParseN2kPGN130306(msg, instance, windSpeed, windAngle, ref);
-                String ws(windSpeed);
+                String ws(msToKnots(windSpeed));
                 ws += "kts";
                 setVlabel(SCR_NAV,  ws);
                 setGauge(SCR_NAV, RadToDeg(windAngle));
+
+                setMeter(SCR_ENV, WINDSP, msToKnots(windSpeed), "kts");
+                setMeter(SCR_ENV, WINDANGLE, RadToDeg(windAngle), "°");
                 }
                        break;
 
@@ -436,6 +450,123 @@ void wifiWork(void) {
                     setMeter(SCR_NAV, DEPTH, depth, "m");
                 }
                 break;
+
+                case 129029: {
+                    // GNSS
+                    unsigned char instance;
+                    uint16_t DaysSince1970; 
+                    double SecondsSinceMidnight;
+                    double Latitude;
+                    double Longitude;
+                    double Altitude;
+                    tN2kGNSStype GNSStype;
+                    tN2kGNSSmethod GNSSmethod;
+                    unsigned char nSatellites;
+                    double Hdop;
+                    double PDOP;
+                    double GeoidalSeparation;
+                    unsigned char nReferenceStations;
+                    tN2kGNSStype ReferenceStationType;
+                    uint16_t ReferenceSationID;
+                    double AgeOfCorrection;
+
+                    bool s = ParseN2kPGN129029(msg, instance, DaysSince1970, SecondsSinceMidnight, Latitude,
+                        Longitude, Altitude, GNSStype, GNSSmethod, nSatellites, Hdop, PDOP, GeoidalSeparation,
+                        nReferenceStations, ReferenceStationType, ReferenceSationID, AgeOfCorrection);
+                                      
+                    setMeter(SCR_GNSS, HDOP, Hdop, "");
+                }
+                break;
+
+                case 129540:
+                {
+                    // GNSS satellites in view
+
+                    unsigned char instance;
+                    tN2kRangeResidualMode Mode; 
+                    uint8_t NumberOfSVs;
+
+                    // First get the number of satellites in view 
+                    bool s = ParseN2kPGN129540(msg, instance, Mode, NumberOfSVs);
+
+                    initGNSSSky(NumberOfSVs);
+                    initGNSSSignal(NumberOfSVs);
+                    // Now for each satellite index get the details
+                    for(int i = 0; i < NumberOfSVs; i++) {
+                        tSatelliteInfo SatelliteInfo;
+
+                        s = ParseN2kPGN129540(msg, i, SatelliteInfo);
+                        Console->printf("RET %d Sat %d PRN %d AZ %f EL %f SNR %f\n", s, i, SatelliteInfo.PRN, 
+                           RadToDeg(SatelliteInfo.Azimuth), RadToDeg(SatelliteInfo.Elevation),
+                            SatelliteInfo.SNR);
+                        setGNSSSignal(i, SatelliteInfo.SNR);
+                        setGNSSSky(i, RadToDeg(SatelliteInfo.Azimuth), RadToDeg(SatelliteInfo.Elevation));
+                    }
+
+                    setMeter(SCR_GNSS, SATS, (double)NumberOfSVs, "");
+
+                }
+                break;
+
+                case 130310:
+                {
+                    // Outside Environmental
+                    unsigned char instance;
+                    double WaterTemperature;
+                    double OutsideAmbientAirTemperature;
+                    double AtmosphericPressure;
+
+                    bool s = ParseN2kPGN130310(msg, instance, WaterTemperature,  OutsideAmbientAirTemperature, AtmosphericPressure);
+
+                    setMeter(SCR_ENV, SEATEMP, KelvinToC(WaterTemperature), "°C");
+                }
+                break;
+
+                case 130312: 
+                {
+                    // Temperature
+                    unsigned char instance;
+                    unsigned char TempInstance;
+                    tN2kTempSource TempSource;
+                    double ActualTemperature;
+                    double SetTemperature;
+
+                    bool s = ParseN2kPGN130312(msg, instance, TempInstance, TempSource, ActualTemperature, SetTemperature);
+
+                    setMeter(SCR_ENV, AIRTEMP,  KelvinToC(ActualTemperature), "°C");
+                }
+                break;
+
+                case 130313: 
+                {
+                    // Humidity
+                    unsigned char instance;
+                    unsigned char HumidityInstance;
+                    tN2kHumiditySource HumiditySource;
+                    double ActualHumidity;
+
+                    bool s = ParseN2kPGN130313(msg, instance, HumidityInstance, HumiditySource, ActualHumidity);
+
+                    setMeter(SCR_ENV, HUM, ActualHumidity, "%");
+                }
+                break;
+
+                case 130314: 
+                {
+                    // Pressure
+                    unsigned char instance;
+                    unsigned char PressureInstance;
+                    tN2kPressureSource PressureSource; 
+                    double Pressure;
+
+                    bool s = ParseN2kPGN130314(msg, instance, PressureInstance, PressureSource, Pressure);
+
+                    setMeter(SCR_ENV, PRESSURE, Pressure / 100, "");
+                }
+                break;
+
+ 
+
             default:
                 // Catch any messages we don't expect
                 break;
@@ -453,8 +584,12 @@ void setup() {
     metersSetup();          // Graphics setup
     wifiSetup();            // Conect to an AP for the YD data
     webServerSetup();       // remote management
+    displayText("Web server started...");
     pinMode(TFT_BL, OUTPUT);
     digitalWrite(TFT_BL, HIGH);
+
+    // Finally load the first working screen
+    loadScreen();
 }
 
 // loop calling the work functions

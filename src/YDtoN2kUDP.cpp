@@ -76,7 +76,7 @@ bool YDtoN2kUDP::readYD(tN2kMsg &msgout)
     const char * sep = " ";
     char * lasts;
     int i = 0;
-    const uint16_t maxwords = 32;
+    const uint16_t maxwords = 64;
     const uint16_t maxlen   = 16;
     char words[maxwords][maxlen];
 
