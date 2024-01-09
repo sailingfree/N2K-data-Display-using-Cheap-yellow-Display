@@ -1,7 +1,7 @@
 /*
 
  This device reads NMEA2000 messages over WiFi in YD format and uses those to display
- the required data.
+ the required data on a TFT screen.
 
  The source of YD messages in my system is the ESP32 WiFi gateway
 
@@ -35,8 +35,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Admin functions setup
 #include <MyAdmin.h>
-
-Stream *OutputStream = NULL;    //&Serial;
 
 // Define the console to output to serial at startup.
 // this can get changed later, eg in the gwshell.
