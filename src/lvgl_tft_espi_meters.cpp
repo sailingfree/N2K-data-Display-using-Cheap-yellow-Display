@@ -1,4 +1,3 @@
-#include <GPSDisplay.h>
 #include <GwPrefs.h>
 #include <StringStream.h>
 #include <SysInfo.h>
@@ -6,6 +5,8 @@
 #include <lvgl.h>
 #include <rotary_encoder.h>
 #include <tftscreen.h>
+#include <NMEA2000.h>
+#include <N2kMessages.h>
 
 // A library for interfacing with the touch screen
 //
