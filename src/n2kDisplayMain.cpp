@@ -26,8 +26,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
  */
 
-
-// Display 
+// Display
 #include <tftscreen.h>
 
 // WiFI handling
@@ -45,10 +44,10 @@ void setup() {
     // set up serial debug
     Serial.begin(115200);
 
-    adminSetup();           // Should be called first to setup preferences etc
-    metersSetup();          // Graphics setup
-    wifiSetup(host_name);   // Conect to an AP for the YD data
-    webServerSetup();       // remote management
+    adminSetup();          // Should be called first to setup preferences etc
+    metersSetup();         // Graphics setup
+    wifiSetup(host_name);  // Conect to an AP for the YD data
+    webServerSetup();      // remote management
     displayText("Web server started...");
 
     // Finally load the first working screen
