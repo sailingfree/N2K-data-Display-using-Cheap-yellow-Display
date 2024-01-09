@@ -130,11 +130,13 @@ void handlePGN(tN2kMsg& msg) {
                 tSatelliteInfo SatelliteInfo;
 
                 s = ParseN2kPGN129540(msg, i, SatelliteInfo);
-                Console->printf("RET %d Sat %d PRN %d AZ %f EL %f SNR %f\n", s, i, SatelliteInfo.PRN,
+/*                Console->printf("RET %d Sat %d PRN %d AZ %f EL %f SNR %f\n", s, i, SatelliteInfo.PRN,
                                 RadToDeg(SatelliteInfo.Azimuth), RadToDeg(SatelliteInfo.Elevation),
                                 SatelliteInfo.SNR);
+*/                                
                 setGNSSSignal(i, SatelliteInfo.SNR);
                 setGNSSSky(i, RadToDeg(SatelliteInfo.Azimuth), RadToDeg(SatelliteInfo.Elevation));
+                
             }
 
             setMeter(SCR_GNSS, SATS, (double)NumberOfSVs, "");

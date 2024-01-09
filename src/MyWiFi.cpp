@@ -13,9 +13,9 @@
 #include <map>
 
 // HTML strings
-#include <style.html>  // Must come before the content files
-#include <login.html>
-#include <server_index.html>
+#include <html/style.html>  // Must come before the content files
+#include <html/login.html>
+#include <html/server_index.html>
 
 // Map for received n2k messages. Logs the PGN and the count
 std::map<int, int> N2kMsgMap;
