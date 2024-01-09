@@ -7,18 +7,20 @@
 #include <StringStream.h>
 #include <WebServer.h>
 #include <YDtoN2KUDP.h>
-#include <tftscreen.h>
-// HTML strings
 #include <handlePGN.h>
+#include <tftscreen.h>
 
-#include <login.html>
 #include <map>
-#include <server_index.html>
+
+// HTML strings
 #include <style.html>  // Must come before the content files
+#include <login.html>
+#include <server_index.html>
 
 // Map for received n2k messages. Logs the PGN and the count
 std::map<int, int> N2kMsgMap;
 
+// Storage for some wifi credentials.
 static const uint16_t MaxAP = 2;
 WiFiCreds wifiCreds[MaxAP];
 
@@ -26,7 +28,7 @@ WiFiCreds wifiCreds[MaxAP];
 String AP_password;  // AP password  read from preferences
 String AP_ssid;      // SSID for the AP constructed from the hostname
 
-// Put IP address details here
+// IP network address when working in AP mode
 const IPAddress AP_local_ip(192, 168, 15, 1);  // Static address for AP
 const IPAddress AP_gateway(192, 168, 15, 1);   // AP is the gateway
 const IPAddress AP_subnet(255, 255, 255, 0);   // /24 subnet
