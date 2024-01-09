@@ -31,8 +31,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "uptime_formatter.h"
 
 // Format the network information and send to the configured stream
-void getNetInfo(Stream &s)
-{
+void getNetInfo(Stream &s) {
     wifi_sta_list_t wifi_sta_list;
     tcpip_adapter_sta_list_t adapter_sta_list;
 
@@ -47,12 +46,11 @@ void getNetInfo(Stream &s)
 }
 
 // get and format the system information and send to the configured stream.
-void getSysInfo(Stream &s)
-{
+void getSysInfo(Stream &s) {
     EspClass esp;
 
-    uint32_t heap = esp.getHeapSize();     // total heap size
-    uint32_t freeheap = esp.getFreeHeap(); // available heap
+    uint32_t heap = esp.getHeapSize();      // total heap size
+    uint32_t freeheap = esp.getFreeHeap();  // available heap
     uint32_t heapUsedPc = (heap - freeheap) * 100 / heap;
 
     uint8_t chiprev = esp.getChipRevision();
@@ -82,59 +80,72 @@ void getSysInfo(Stream &s)
 
 // Get the N2k messages and their counts and send to the configured output stream.
 extern std::map<int, int> N2kMsgMap;
-void getN2kMsgs(Stream &s)
-{
+void getN2kMsgs(Stream &s) {
     std::map<int, int>::iterator it = N2kMsgMap.begin();
 
     s.println("======== N2K Messages ====");
     s.printf("PGN\tCount\tFunction\n");
 
-    while (it != N2kMsgMap.end())
-    {
-        const char * name = "unknown";
-        switch(it->first) {
-
-            case 127488: 
-            name = "Engine Rapid";
-            break;
+    while (it != N2kMsgMap.end()) {
+        const char *name = "unknown";
+        switch (it->first) {
+            case 127488:
+                name = "Engine Rapid";
+                break;
             case 127508:
-            name = "Battery Status";
-            break;
+                name = "Battery Status";
+                break;
             case 127513:
-            name = "Battery Configuration";
-            break;
+                name = "Battery Configuration";
+                break;
             case 60928:
-            name = "IsoAddress"; break;
-            case 126992: 
-            name = "System Time"; break;
+                name = "IsoAddress";
+                break;
+            case 126992:
+                name = "System Time";
+                break;
             case 126996:
-            name = "Product Information"; break;
+                name = "Product Information";
+                break;
             case 127250:
-            name = "Magnetic Heading"; break;
+                name = "Magnetic Heading";
+                break;
             case 127489:
-            name = "Engine Dynamic"; break;
+                name = "Engine Dynamic";
+                break;
             case 130306:
-            name = "Wind Data"; break;
+                name = "Wind Data";
+                break;
             case 128267:
-            name = "Depth Data"; break;
+                name = "Depth Data";
+                break;
             case 129026:
-            name = "COG/SOG"; break;
+                name = "COG/SOG";
+                break;
             case 130310:
-            name = "Outside environment"; break;
+                name = "Outside environment";
+                break;
             case 130311:
-            name = "Environmental Parameters"; break;
-            case 130312: 
-            name = "Temperature"; break;
+                name = "Environmental Parameters";
+                break;
+            case 130312:
+                name = "Temperature";
+                break;
             case 130313:
-            name = "Humidity"; break;
+                name = "Humidity";
+                break;
             case 130314:
-            name = "Pressure"; break;
+                name = "Pressure";
+                break;
             case 129029:
-            name = "GNSS"; break;
+                name = "GNSS";
+                break;
             case 129539:
-            name = "GNSS DOP"; break;
+                name = "GNSS DOP";
+                break;
             case 129540:
-            name = "GNSS Sats in view"; break;
+                name = "GNSS Sats in view";
+                break;
         }
         s.printf("%d\t%d\t%s\n", it->first, it->second, name);
         it++;

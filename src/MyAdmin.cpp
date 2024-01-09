@@ -1,14 +1,14 @@
 #include <Arduino.h>
+#include <GwOTA.h>
 #include <GwPrefs.h>
 #include <GwShell.h>
-#include <MyWiFi.h>
-#include <GwOTA.h>
 #include <GwTelnet.h>
+#include <MyWiFi.h>
 
 // Global objects and variables
 String host_name;
 String Model = "Naiad Display 1";
-String macAddress;              // Make the mac address gloabal
+String macAddress;  // Make the mac address gloabal
 
 // Setup the shell and other admin
 void adminSetup(void) {
@@ -30,13 +30,13 @@ void adminSetup(void) {
         macAddress += String(chipid[i], HEX);
     }
 
-       // Initialise the preferences
+    // Initialise the preferences
     GwPrefsInit();
 
     // Generate the hostname by appending the last two octets of the mac address to make it unique
     String hname = GwGetVal(GWHOST, "n2kdisplay");
     host_name = hname + String(chipid[4], HEX) + String(chipid[5], HEX);
-        
+
     // Init the shell
     initGwShell();
     setShellSource(&Serial);

@@ -94,7 +94,7 @@ String GwSetVal(const char *key, String newval) {
     String curval;
     shellPref.begin(prefname, false);
     shellPref.putString(key, newval);
-    curval = shellPref.getString (key);
+    curval = shellPref.getString(key);
     shellPref.end();
     return curval;
 }

@@ -1,16 +1,15 @@
 #include <Arduino.h>
-#include <tftscreen.h>
-#include <lvgl.h>
-#include <NMEA2000.h>
 #include <GPSDisplay.h>
+#include <NMEA2000.h>
+#include <lvgl.h>
+#include <tftscreen.h>
 
-GPSDisplay::GPSDisplay(lv_obj_t * parentin, uint32_t xin, uint32_t yin){
+GPSDisplay::GPSDisplay(lv_obj_t* parentin, uint32_t xin, uint32_t yin) {
     parent = parentin;
     x = xin;
     y = yin;
     w = TFT_HEIGHT / 2;
     h = TFT_HEIGHT / 2;
-
 
     // Constructor. Binds to the parent object.
     container = lv_cont_create(parent, NULL);
@@ -24,16 +23,15 @@ GPSDisplay::GPSDisplay(lv_obj_t * parentin, uint32_t xin, uint32_t yin){
 
     lv_obj_set_pos(container, xin, yin);
 
-    clear();   // Draw the parts without any satellites
+    clear();  // Draw the parts without any satellites
 }
 
 void GPSDisplay::clear() {
-    lv_obj_t * arc = lv_arc_create(container, NULL);
+    lv_obj_t* arc = lv_arc_create(container, NULL);
     lv_obj_set_size(arc, w, h);
     lv_arc_set_bg_angles(arc, 0, 359);
     lv_arc_set_rotation(arc, 270);
 }
 
 void GPSDisplay::plot(tSatelliteInfo sat) {
-    
 }

@@ -1,10 +1,9 @@
-#include <lvgl.h>
 #include <NMEA2000.h>
+#include <lvgl.h>
 
 // Define the expected min and max values for the GNSS SNR
-#define MIN_SNR  35
-#define MAX_SNR  50
-
+#define MIN_SNR 35
+#define MAX_SNR 50
 
 typedef struct {
     double value;
@@ -18,25 +17,23 @@ typedef struct {
     double oldvalue;
 } Digital;
 
-
-// This class implements a rectangle container which has a main display for 
+// This class implements a rectangle container which has a main display for
 // eg voltage, a smaller header. It is designed to work with the lvgl library
-// on an ESP32 or similar. 
+// on an ESP32 or similar.
 // It has a fixed size.
 class Indicator {
    public:
-    // Constructor: 
+    // Constructor:
     Indicator(lv_obj_t *parent, const char *label, uint32_t x, uint32_t y);
     void setValue(const char *value);
 
-   //private:
+    // private:
     lv_obj_t *container;
     lv_obj_t *label;
     lv_obj_t *text;
 };
 
-
-//void metersTask(void* param);
+// void metersTask(void* param);
 void metersSetup();
 void metersWork();
 void setMeter(int scr, int ind, double, const char *);
@@ -57,30 +54,30 @@ typedef enum {
     SCR_SYSINFO,
     SCR_MSGS,
     SCR_MAX
-}Screens;
+} Screens;
 
 // Indicator indexes
 typedef enum {
-    HOUSEV      = 0,
-    HOUSEI      = 1,
-    ENGINEV     = 2,
+    HOUSEV = 0,
+    HOUSEI = 1,
+    ENGINEV = 2,
 
     // Indexes for the nav info screen
-    SOG         = 0,
-    DEPTH       = 1,
-    HDG         = 2,
+    SOG = 0,
+    DEPTH = 1,
+    HDG = 2,
 
     // Indexes for the GNSS screen
-    SATS        = 0,
-    HDOP        = 1,
+    SATS = 0,
+    HDOP = 1,
 
     // Environmental
-    AIRTEMP     = 0,
-    HUM         = 1,
-    PRESSURE    = 2,
-    SEATEMP     = 3,
-    WINDSP      = 4,
-    WINDANGLE   = 5,
+    AIRTEMP = 0,
+    HUM = 1,
+    PRESSURE = 2,
+    SEATEMP = 3,
+    WINDSP = 4,
+    WINDANGLE = 5,
 } MeterIdx;
 
 // Set a signal strength indicator for index idx

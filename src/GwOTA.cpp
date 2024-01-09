@@ -1,9 +1,9 @@
 #include <GwOTA.h>
 
-static Stream * Console;
+static Stream* Console;
 
 // Initialize the Arduino OTA
-void initializeOTA(Stream * out) {
+void initializeOTA(Stream* out) {
     // TODO: option to authentication (password)
 
     Console = out;

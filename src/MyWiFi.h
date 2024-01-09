@@ -12,12 +12,12 @@ typedef struct {
     String pass;
 } WiFiCreds;
 
-extern Stream * Console;
+extern Stream* Console;
 
 // External declarations
 
 // Initialise the wifi network
-void wifiSetup(String & host_name);
+void wifiSetup(String& host_name);
 
 // Check its still connected and re-connect if not
 void wifiCheck(void);

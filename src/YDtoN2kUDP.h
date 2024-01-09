@@ -21,21 +21,19 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #include <Arduino.h>
-#include <WiFi.h>
 #include <N2kMessages.h>
 #include <N2kMsg.h>
-
+#include <WiFi.h>
 
 #define N2K_PKT_SIZE 1460
 
 class YDtoN2kUDP {
+   public:
+    YDtoN2kUDP();
+    void begin(uint16_t port);
+    bool readYD(tN2kMsg &N2kMsg);
 
-    public: 
-        YDtoN2kUDP();
-        void begin(uint16_t port);
-        bool readYD(tN2kMsg &N2kMsg);
-
-    private:
-        WiFiUDP wifiUdp;
-        char packetBuffer[N2K_PKT_SIZE];     //buffer to hold incoming packet
+   private:
+    WiFiUDP wifiUdp;
+    char packetBuffer[N2K_PKT_SIZE];  // buffer to hold incoming packet
 };

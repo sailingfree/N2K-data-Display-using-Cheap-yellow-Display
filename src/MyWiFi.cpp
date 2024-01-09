@@ -1,19 +1,20 @@
 // Common wifi handling
 
+#include <ESPmDNS.h>
+#include <GwOTA.h>
+#include <GwPrefs.h>
 #include <MyWiFi.h>
 #include <StringStream.h>
-#include <tftscreen.h>
-#include <GwPrefs.h>
-#include <ESPmDNS.h>
 #include <WebServer.h>
 #include <YDtoN2KUDP.h>
-#include <GwOTA.h>
+#include <tftscreen.h>
 // HTML strings
-#include <style.html>       // Must come before the content files
-#include <login.html>
-#include <server_index.html>
 #include <handlePGN.h>
+
+#include <login.html>
 #include <map>
+#include <server_index.html>
+#include <style.html>  // Must come before the content files
 
 // Map for received n2k messages. Logs the PGN and the count
 std::map<int, int> N2kMsgMap;
@@ -26,9 +27,9 @@ String AP_password;  // AP password  read from preferences
 String AP_ssid;      // SSID for the AP constructed from the hostname
 
 // Put IP address details here
-const IPAddress AP_local_ip(192, 168, 15, 1);   // Static address for AP
-const IPAddress AP_gateway(192, 168, 15, 1);    // AP is the gateway
-const IPAddress AP_subnet(255, 255, 255, 0);    // /24 subnet
+const IPAddress AP_local_ip(192, 168, 15, 1);  // Static address for AP
+const IPAddress AP_gateway(192, 168, 15, 1);   // AP is the gateway
+const IPAddress AP_subnet(255, 255, 255, 0);   // /24 subnet
 
 // This application will only ever be a client so predefine this here
 Gw_WiFi_Mode wifiType = WiFi_AP;
@@ -52,7 +53,6 @@ WiFiServer telnet(23);
 // Telnet client for connections
 WiFiClient telnetClient;
 
-
 // Connect to a wifi AP
 // Try all the configured APs
 static bool hadconnection = false;
@@ -60,18 +60,18 @@ static bool hadconnection = false;
 bool connectWifi() {
     int wifi_retry = 0;
 
-  //  Serial.printf("There are %d APs to try\n", MaxAP);
+    //  Serial.printf("There are %d APs to try\n", MaxAP);
 
     for (int i = 0; i < MaxAP; i++) {
         if (wifiCreds[i].ssid != "---") {
             StringStream s;
             s.printf("\nTrying %s\n", wifiCreds[i].ssid.c_str());
             Serial.print(s.data);
-            displayText((char *)s.data.c_str());
+            displayText((char*)s.data.c_str());
             WiFi.disconnect();
             WiFi.mode(WIFI_OFF);
             WiFi.mode(WIFI_STA);
-            
+
             // Do two begins here with a delay to get around the problem that after upload
             // the first wifi begin often fails.
             // From here https://www.esp32.com/viewtopic.php?t=12720
@@ -132,7 +132,7 @@ void wifiCheck() {
 // WiFi setup.
 // Connect to a wifi AP which supplies the data we need.
 // Register services we use
-void wifiSetup(String & host_name) {
+void wifiSetup(String& host_name) {
     Serial.println("Starting WiFi manager task...");
     displayText("Starting WiFi...");
 
@@ -155,8 +155,7 @@ void wifiSetup(String & host_name) {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Failed to connect to WiFi please check creds");
         displayText("Can't connect to wifi please check creds");
-    }
-    else {
+    } else {
         Serial.println("WiFi connected..!");
         Serial.print("Got IP: ");
         Serial.println(WiFi.localIP());
@@ -164,8 +163,7 @@ void wifiSetup(String & host_name) {
         if (MDNS.begin(host_name.c_str())) {
             Console->print("* MDNS responder started. Hostname -> ");
             Console->println(host_name);
-        }
-        else {
+        } else {
             Console->printf("Failed to start the MDNS respondern");
         }
 
@@ -187,30 +185,29 @@ void wifiSetup(String & host_name) {
 
 // Web server
 void webServerSetup(void) {
-        if(WiFi.status() == WL_CONNECTED) {
-
-    Serial.println("Web server started");
-    displayText("Web Server started");
-    server.on("/", HTTP_GET, []() {
-        server.sendHeader("Connection", "close");
-        server.send(200, "text/html", loginIndex);
-    });
-    server.on("/serverIndex", HTTP_GET, []() {
-        server.sendHeader("Connection", "close");
-        server.send(200, "text/html", serverIndex);
-    });
-    /*handling uploading firmware file */
-    server.on("/", HTTP_GET, []() {
-        server.sendHeader("Connection", "close");
-        server.send(200, "text/html", loginIndex);
-    });
-    server.on("/serverIndex", HTTP_GET, []() {
-        server.sendHeader("Connection", "close");
-        server.send(200, "text/html", serverIndex);
-    });
-    /*handling uploading firmware file */
-    server.on(
-        "/update", HTTP_POST, []() {
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("Web server started");
+        displayText("Web Server started");
+        server.on("/", HTTP_GET, []() {
+            server.sendHeader("Connection", "close");
+            server.send(200, "text/html", loginIndex);
+        });
+        server.on("/serverIndex", HTTP_GET, []() {
+            server.sendHeader("Connection", "close");
+            server.send(200, "text/html", serverIndex);
+        });
+        /*handling uploading firmware file */
+        server.on("/", HTTP_GET, []() {
+            server.sendHeader("Connection", "close");
+            server.send(200, "text/html", loginIndex);
+        });
+        server.on("/serverIndex", HTTP_GET, []() {
+            server.sendHeader("Connection", "close");
+            server.send(200, "text/html", serverIndex);
+        });
+        /*handling uploading firmware file */
+        server.on(
+            "/update", HTTP_POST, []() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
     ESP.restart(); }, []() {
@@ -232,9 +229,9 @@ void webServerSetup(void) {
         Update.printError(Serial);
       }
     } });
-    sleep(2);
-    server.begin();
-        }
+        sleep(2);
+        server.begin();
+    }
 }
 
 void webServerWork() {
@@ -243,18 +240,15 @@ void webServerWork() {
     }
 }
 
-
-// loop reading the YD data, decode the N2K messages 
+// loop reading the YD data, decode the N2K messages
 // and update the screen copies.
 void wifiWork(void) {
     tN2kMsg msg;
 
     if (WiFi.status() == WL_CONNECTED) {
         while (ydtoN2kUDP.readYD(msg)) {
-
             N2kMsgMap[msg.PGN]++;
             handlePGN(msg);
         }
     }
 }
-
