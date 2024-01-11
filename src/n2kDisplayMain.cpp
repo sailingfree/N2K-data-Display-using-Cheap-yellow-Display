@@ -35,6 +35,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // Admin functions setup
 #include <MyAdmin.h>
 
+// Storage
+#include <sdcard.h>
+
 // Define the console to output to serial at startup.
 // this can get changed later, eg in the gwshell.
 Stream *Console = &Serial;
@@ -43,6 +46,8 @@ Stream *Console = &Serial;
 void setup() {
     // set up serial debug
     Serial.begin(115200);
+
+    sdcard_setup();
 
     adminSetup();          // Should be called first to setup preferences etc
     metersSetup();         // Graphics setup
