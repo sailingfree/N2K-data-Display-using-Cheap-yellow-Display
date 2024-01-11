@@ -131,7 +131,18 @@ void handlePGN(tN2kMsg& msg) {
                                        Longitude, Altitude, GNSStype, GNSSmethod, nSatellites, Hdop, PDOP, GeoidalSeparation,
                                        nReferenceStations, ReferenceStationType, ReferenceSationID, AgeOfCorrection);
 
+            // Convert seconds since midnight to HH:MM:SS
+            uint16_t seconds, minutes, hours;
+            uint32_t t = SecondsSinceMidnight;
+            seconds = t % 60;
+            t = (t - seconds) / 60;
+            minutes = t % 60;
+            hours = (t - minutes) / 60;
+            char buf[10];
+            snprintf(buf, 9, "%02d:%02d:%02d", hours, minutes, seconds);
+
             setMeter(SCR_GNSS, HDOP, Hdop, "");
+            setMeter(SCR_GNSS, TIME, buf);
         } break;
 
         case 129540: {

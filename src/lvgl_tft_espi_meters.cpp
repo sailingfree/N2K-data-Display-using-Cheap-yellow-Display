@@ -197,11 +197,6 @@ static void my_event_cb(lv_obj_t *obj, lv_event_t event) {
 
         String val(iiscrnum);
         GwSetVal(GWSCREEN, val);
-    } else if (event == LV_EVENT_FOCUSED) {
-        // Screen has just got the focus so update the contents
-        Serial.printf("Focus on screen %d\n", iiscrnum);
-    } else {
-        Serial.printf("EV %d\n", event);
     }
 }
 
@@ -469,7 +464,7 @@ static lv_obj_t *createGNSSScreen(int scr) {
 
     ind[scr][0] = new Indicator(cont, "SATS", 0, 0);
     ind[scr][1] = new Indicator(cont, "HDOP", 0, TFT_WIDTH / 3);
-    ind[scr][2] = new Indicator(cont, "TBD", 0, 2 * TFT_WIDTH / 3);
+    ind[scr][2] = new Indicator(cont, "UTC", 0, 2 * TFT_WIDTH / 3);
 
     // Create a sky view. An image forms the background rings
     LV_IMG_DECLARE(sky);
@@ -484,7 +479,10 @@ static lv_obj_t *createGNSSScreen(int scr) {
     lv_obj_align(GNSSChart, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0);
     lv_chart_set_type(GNSSChart, LV_CHART_TYPE_COLUMN);
     lv_chart_set_range(GNSSChart, MIN_SNR, MAX_SNR);  // Typical min and max SNR
-    lv_obj_set_style_local_pad_inner(GNSSChart, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, 0);
+
+    // I want the bars to fill their columns but the default leaves a big gap
+    // This value fits the number of bars and was found by trial and error.
+    lv_obj_set_style_local_pad_inner(GNSSChart, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, -5);
     GNSSChartSeries = lv_chart_add_series(GNSSChart, LV_COLOR_GREEN);
 
     // Zero all the values at the start
@@ -580,6 +578,13 @@ void setGauge(int scr, double value) {
 void setMeter(int scr, int idx, String &string) {
     if (scr >= 0 && scr < SCR_MAX && ind[scr][idx]) {
         ind[scr][idx]->setValue(string.c_str());
+    }
+}
+
+// set using a char *
+void setMeter(int scr, int idx, char * str) {
+    if (scr >= 0 && scr < SCR_MAX && ind[scr][idx]) {
+        ind[scr][idx]->setValue(str);
     }
 }
 
