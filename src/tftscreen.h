@@ -37,6 +37,7 @@ class Indicator {
 void metersSetup();
 void metersWork();
 void setMeter(int scr, int ind, double, const char *);
+void setMeter(int scr, int ind, char *);
 void setGauge(int scr, double);
 void setVlabel(int, String &);
 void setilabel(int scr, String &);
@@ -70,6 +71,7 @@ typedef enum {
     // Indexes for the GNSS screen
     SATS = 0,
     HDOP = 1,
+    TIME = 2,
 
     // Environmental
     AIRTEMP = 0,
