@@ -230,7 +230,8 @@ void Indicator::setValue(const char *value) {
 void touch_init() {
     // Start the SPI for the touch screen and init the TS library
     mySpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
-    ts.begin(mySpi);
+    bool s = ts.begin(mySpi);
+    Serial.printf("Touch begin => %d\n", s);
     ts.setRotation(1);
 }
 
@@ -407,6 +408,7 @@ static lv_obj_t *createNavScreen(int scr) {
     uint8_t sub_div = 8;
     uint8_t line_cnt = line_cnt = (sub_div + 1) * (label_cnt - 1) + 1;  // Max
 
+    
     static lv_style_t style;
     lv_style_init(&style);
     gauge = lv_gauge_create(container, NULL);
@@ -418,9 +420,9 @@ static lv_obj_t *createNavScreen(int scr) {
     lv_obj_set_style_local_pad_bottom(gauge, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 2);
 
     lv_gauge_set_value(gauge, 0, 0);
-    lv_gauge_set_range(gauge, 1, 359);
-    lv_gauge_set_scale(gauge, 360, line_cnt, label_cnt);
-    lv_gauge_set_angle_offset(gauge, 181);
+    lv_gauge_set_range(gauge, 1, 360);
+    lv_gauge_set_scale(gauge, 359, line_cnt, label_cnt); 
+    lv_gauge_set_angle_offset(gauge, 181); 
     lv_gauge_set_critical_value(gauge, 0);
     lv_style_set_scale_end_color(&style, LV_STATE_DEFAULT, LV_COLOR_BLUE);
     lv_style_set_line_color(&style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
@@ -569,7 +571,6 @@ void setMeter(int scr, int idx, double value, const char *units) {
 
 void setGauge(int scr, double value) {
     if (scr >= 0 && scr < SCR_MAX && gauges[scr]) {
-        String lvalue(value, 0);
         lv_gauge_set_value(gauges[scr], 0, value);
     }
 }

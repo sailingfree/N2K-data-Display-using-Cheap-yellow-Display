@@ -1,187 +1,292 @@
-/*******************************************************************
-    An example of using the built-in SD card slot of the CYD.
-
-    The example will test reading and writing files to the SD card.
-    It will print its output to the serial monitor
-
-    Based on the basic SD_Test example in the ESP32 library.
-
-    https://github.com/witnessmenow/ESP32-Cheap-Yellow-Display
-
-    If you find what I do useful and would like to support me,
-    please consider becoming a sponsor on Github
-    https://github.com/sponsors/witnessmenow/
-
-    Written by Brian Lough
-    YouTube: https://www.youtube.com/brianlough
-    Twitter: https://twitter.com/witnessmenow
- *******************************************************************/
-
-// ----------------------------
-// Standard Libraries
-// ----------------------------
-
-#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
-
-
+#include <Arduino.h>
+#include <SdFat.h>
+#include <SPI.h>
+#include "sdios.h"
+#include <time.h>
+#include <ESP32time.h>
 
 // ----------------------------
 // SD Reader pins
 // ----------------------------
 
-#define SD_SCK 18
-#define SD_MISO 19
-#define SD_MOSI 23
-#define SD_CS 5
+#define SCK 18
+#define MISO 19
+#define SMOSI 23
+#define SS 5
+#define SDCARD_SS_PIN SS
+/*
+  Set DISABLE_CS_PIN to disable a second SPI device.
+  For example, with the Ethernet shield, set DISABLE_CS_PIN
+  to 10 to disable the Ethernet controller.
+*/
+const int8_t DISABLE_CS_PIN = -1;
 
-// ----------------------------
+/*
+  Change the value of SD_CS_PIN if you are using SPI
+  and your hardware does not use the default value, SS.
+  Common values are:
+  Arduino Ethernet shield: pin 4
+  Sparkfun SD shield: pin 8
+  Adafruit SD shields and modules: pin 10
+*/
+// SDCARD_SS_PIN is defined for the built-in SD on some boards.
+#ifndef SDCARD_SS_PIN
+const uint8_t SD_CS_PIN = SS;
+#else   // SDCARD_SS_PIN
+const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
+#endif  // SDCARD_SS_PIN
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels) {
-  Serial.printf("Listing directory: %s\n", dirname);
+// Select the best SD card configuration.
+#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(32))
 
-  File root = fs.open(dirname);
-  if (!root) {
-    Serial.println("Failed to open directory");
-    return;
-  }
-  if (!root.isDirectory()) {
-    Serial.println("Not a directory");
-    return;
-  }
+SdFs sd;
+FsFile file;
 
-  File file = root.openNextFile();
-  while (file) {
-    if (file.isDirectory()) {
-      Serial.print("  DIR : ");
-      Serial.println(file.name());
-      if (levels) {
-        listDir(fs, file.name(), levels - 1);
+static bool hasSD = false;
+
+bool hasSdCard() {
+  return hasSD;
+}
+
+//------------------------------------------------------------------------------
+
+cid_t cid;
+csd_t csd;
+scr_t scr;
+uint8_t cmd6Data[64];
+uint32_t eraseSize;
+uint32_t ocr;
+
+
+const char * getCardType() {
+  if(!hasSD) {
+    return "No SD card found";
+  } else {
+
+  switch (sd.card()->type()) {
+    case SD_CARD_TYPE_SD1:
+      return "SD1";
+      break;
+
+    case SD_CARD_TYPE_SD2:
+      return "SD2";
+      break;
+
+    case SD_CARD_TYPE_SDHC:
+      if (csd.capacity() < 70000000) {
+        return "SDHC";
+      } else {
+        return "SDXC";
       }
-    } else {
-      Serial.print("  FILE: ");
-      Serial.print(file.name());
-      Serial.print("  SIZE: ");
-      Serial.println(file.size());
-    }
-    file = root.openNextFile();
+      break;
+
+    default:
+      return "Unknown";
+  }
   }
 }
 
-void createDir(fs::FS &fs, const char * path) {
-  Serial.printf("Creating Dir: %s\n", path);
-  if (fs.mkdir(path)) {
-    Serial.println("Dir created");
+// Card capacity in MB
+uint32_t getCapacity() {
+  uint32_t s = csd.capacity();
+  return s * 0.000512;
+}
+
+//------------------------------------------------------------------------------
+void printCardType() {
+  Serial.printf("SD Card type %s\n", getCardType());
+}
+
+
+//------------------------------------------------------------------------------
+void printConfig(SdSpiConfig config) {
+  if (DISABLE_CS_PIN < 0) {
+    Serial.printf(
+        "\nAssuming the SD is the only SPI device.\n"
+        "Edit DISABLE_CS_PIN to disable an SPI device.\n");
   } else {
-    Serial.println("mkdir failed");
+    Serial.printf("\nDisabling SPI device on pin %d", DISABLE_CS_PIN);
+      pinMode(DISABLE_CS_PIN, OUTPUT);
+    digitalWrite(DISABLE_CS_PIN, HIGH);
+  }
+}
+//------------------------------------------------------------------------------
+void printConfig(SdioConfig config) {
+  (void)config;
+  Serial.printf("Assuming an SDIO interface.\n");
+}
+
+//------------------------------------------------------------------------------
+static ArduinoOutStream cout(Serial);
+
+//------------------------------------------------------------------------------
+void errorPrint(const char * msg = "") {
+  cout << F(msg) << " ";
+  if (sd.sdErrorCode()) {
+    cout << F("SD errorCode: ") << hex << showbase;
+    printSdErrorSymbol(&Serial, sd.sdErrorCode());
+    cout << F(" = ") << int(sd.sdErrorCode()) << endl;
+    cout << F("SD errorData = ") << int(sd.sdErrorData()) << dec << endl;
   }
 }
 
-void removeDir(fs::FS &fs, const char * path) {
-  Serial.printf("Removing Dir: %s\n", path);
-  if (fs.rmdir(path)) {
-    Serial.println("Dir removed");
-  } else {
-    Serial.println("rmdir failed");
-  }
-}
-
-void readFile(fs::FS &fs, const char * path) {
-  Serial.printf("Reading file: %s\n", path);
-
-  File file = fs.open(path);
-  if (!file) {
-    Serial.println("Failed to open file for reading");
-    return;
-  }
-
-  Serial.print("Read from file: ");
-  while (file.available()) {
-    Serial.write(file.read());
-  }
-  file.close();
-}
-
-void writeFile(fs::FS &fs, const char * path, const char * message) {
-  Serial.printf("Writing file: %s\n", path);
-
-  File file = fs.open(path, FILE_WRITE);
-  if (!file) {
-    Serial.println("Failed to open file for writing");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("File written");
-  } else {
-    Serial.println("Write failed");
-  }
-  file.close();
-}
-
-void appendFile(fs::FS &fs, const char * path, const char * message) {
-  Serial.printf("Appending to file: %s\n", path);
-
-  File file = fs.open(path, FILE_APPEND);
-  if (!file) {
-    Serial.println("Failed to open file for appending");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("Message appended");
-  } else {
-    Serial.println("Append failed");
-  }
-  file.close();
-}
-
-void renameFile(fs::FS &fs, const char * path1, const char * path2) {
-  Serial.printf("Renaming file %s to %s\n", path1, path2);
-  if (fs.rename(path1, path2)) {
-    Serial.println("File renamed");
-  } else {
-    Serial.println("Rename failed");
-  }
-}
-
-void deleteFile(fs::FS &fs, const char * path) {
-  Serial.printf("Deleting file: %s\n", path);
-  if (fs.remove(path)) {
-    Serial.println("File deleted");
-  } else {
-    Serial.println("Delete failed");
-  }
-}
-
-
-
-void sdcard_setup() {
-  SPIClass spi = SPIClass(HSPI);
-  spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
-
-  if (!SD.begin(SD_CS, spi, 80000000)) {
-    Serial.println("Card Mount Failed");
-    return;
-  }
-  uint8_t cardType = SD.cardType();
-
-  if (cardType == CARD_NONE) {
-    Serial.println("No SD card attached");
-    return;
-  }
+// Call back for file timestamps.  Only called for file create and sync().
+void dateTime(uint16_t* date, uint16_t* t, uint8_t* ms10) {
+  ESP32Time rtc;
   
-  Serial.print("SD Card Type: ");
-  if (cardType == CARD_MMC) {
-    Serial.println("MMC");
-  } else if (cardType == CARD_SD) {
-    Serial.println("SDSC");
-  } else if (cardType == CARD_SDHC) {
-    Serial.println("SDHC");
-  } else {
-    Serial.println("UNKNOWN");
+  // Return date using FS_DATE macro to format fields.
+  *date = FS_DATE(rtc.getYear(), rtc.getMonth(), rtc.getDay());
+
+  // Return time using FS_TIME macro to format fields in 24 hour format
+  *t = FS_TIME(rtc.getHour(true), rtc.getMinute(), rtc.getSecond());
+
+  // Return low time bits in units of 10 ms.
+  *ms10 = 0;
+  //Serial.printf("0x%x 0x%x 0x%x\n", *date, *t, *ms10);
+}
+
+//-----------------------------------------------------------------------------
+void sdcard_setup() {
+  Serial.printf("SdFat version: %s ", SD_FAT_VERSION_STR);
+  printConfig(SD_CONFIG);
+  
+  // Initialize at the highest speed supported by the board that is
+  // not over 50 MHz. Try a lower speed if SPI errors occur.
+  if (!sd.begin(SD_CONFIG)) {
+  Serial.print(F(
+        "\nSD initialization failed.\n"
+        "Do not reformat the card!\n"
+        "Is the card correctly inserted?\n"
+        "Is there a wiring/soldering problem?\n"));
+    if (isSpi(SD_CONFIG)) {
+      Serial.print(F(
+          "Is SD_CS_PIN set to the correct value?\n"
+          "Does another SPI device need to be disabled?\n"));
+    }
+    errorPrint();
+    return;
   }
-    createDir(SD, "/mydir");
-    writeFile(SD, "/hello.txt", "Hello ");
-    writeFile(SD, "/mydir/test.txt", "Test");
-    listDir(SD, "/", 2);
+  hasSD = true;
+
+  printConfig(SD_CONFIG);
+  printCardType();
+
+   // Set callback
+  FsDateTime::setCallback(dateTime);
+  sd.ls(LS_R);
+}
+
+//------------------------------------------------------------------------------
+uint32_t cardSectorCount = 0;
+uint8_t sectorBuffer[512];
+//------------------------------------------------------------------------------
+// SdCardFactory constructs and initializes the appropriate card.
+SdCardFactory cardFactory;
+// Pointer to generic SD card.
+SdCard* m_card = nullptr;
+
+
+//------------------------------------------------------------------------------
+void clearSerialInput() {
+  uint32_t m = micros();
+  do {
+    if (Serial.read() >= 0) {
+      m = micros();
+    }
+  } while (micros() - m < 10000);
+}
+
+
+//------------------------------------------------------------------------------
+// flash erase all data
+uint32_t const ERASE_SIZE = 262144L;
+void eraseCard() {
+  cout << endl << F("Erasing\n");
+  uint32_t firstBlock = 0;
+  uint32_t lastBlock;
+  uint16_t n = 0;
+
+  do {
+    lastBlock = firstBlock + ERASE_SIZE - 1;
+    if (lastBlock >= cardSectorCount) {
+      lastBlock = cardSectorCount - 1;
+    }
+    if (!m_card->erase(firstBlock, lastBlock)) {
+      errorPrint("erase failed");
+    }
+    cout << '.';
+    if ((n++) % 64 == 63) {
+      cout << endl;
+    }
+    firstBlock += ERASE_SIZE;
+  } while (firstBlock < cardSectorCount);
+  cout << endl;
+
+  if (!m_card->readSector(0, sectorBuffer)) {
+    errorPrint("readBlock");
+  }
+  cout << hex << showbase << setfill('0') << internal;
+  cout << F("All data set to ") << setw(4) << int(sectorBuffer[0]) << endl;
+  cout << dec << noshowbase << setfill(' ') << right;
+  cout << F("Erase done\n");
+}
+//------------------------------------------------------------------------------
+void formatCard() {
+  ExFatFormatter exFatFormatter;
+  FatFormatter fatFormatter;
+
+  // Format exFAT if larger than 32GB.
+  bool rtn = cardSectorCount > 67108864
+                 ? exFatFormatter.format(m_card, sectorBuffer, &Serial)
+                 : fatFormatter.format(m_card, sectorBuffer, &Serial);
+
+  if (!rtn) {
+    errorPrint();
+  }
+  cout << F("Run the SdInfo example for format details.") << endl;
+}
+
+void dir(const char * dirname, uint8_t levels, Stream & stream) {
+  if(!hasSD){
+    return;
+  }
+  sd.ls(&stream, "/", LS_R | LS_A | LS_DATE | LS_SIZE);
+  stream.printf("\n");
+}
+
+esp_err_t formatSD() {
+
+  if(!hasSD) {
+    cout << "No SD card.. exiting..." << endl;
+    return -1;
+  }
+    // Select and initialize proper card driver.
+  m_card = cardFactory.newCard(SD_CONFIG);
+  if (!m_card || m_card->errorCode()) {
+    errorPrint("card init failed.");
+    return 0;
+  }
+
+  cardSectorCount = m_card->sectorCount();
+  if (!cardSectorCount) {
+    errorPrint("Get sector count failed.");
+    return 0;
+  }
+
+  cout << F("\nCard size: ") << cardSectorCount * 5.12e-7;
+  cout << F(" GB (GB = 1E9 bytes)\n");
+  cout << F("Card size: ") << cardSectorCount / 2097152.0;
+  cout << F(" GiB (GiB = 2^30 bytes)\n");
+
+  cout << F("Card will be formated ");
+  if (cardSectorCount > 67108864) {
+    cout << F("exFAT\n");
+  } else if (cardSectorCount > 4194304) {
+    cout << F("FAT32\n");
+  } else {
+    cout << F("FAT16\n");
+  }
+  eraseCard();
+  formatCard();
+  return 0;
 }

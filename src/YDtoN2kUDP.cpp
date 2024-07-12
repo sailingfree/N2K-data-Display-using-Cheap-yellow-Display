@@ -32,6 +32,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 #include <YDtoN2KUDP.h>
+#include <GwLogger.h>
 
 // Constructor
 YDtoN2kUDP::YDtoN2kUDP() {
@@ -42,12 +43,13 @@ void YDtoN2kUDP::begin(uint16_t port) {
     wifiUdp.begin(port);
 }
 
-// read the YD data from teh UDP port. If no data return false
+// read the YD data from the UDP port. If no data return false
 // otherwise decode the data into the callers supplied object
 bool YDtoN2kUDP::readYD(tN2kMsg &msgout)
 {
   static uint32_t seq = 0;      // Used for debugging
   static const int debug = 0;   // Set to 1 for debug messages
+  static const int debug2 = 0;  // set to 1 to print the YD messages only
   bool hadpacket = false;       // Return value
 
     // Read and parse the data from the UDP port.
@@ -66,9 +68,13 @@ bool YDtoN2kUDP::readYD(tN2kMsg &msgout)
       packetBuffer[len] = 0;
     }
 
-    if(debug) {
-      Serial.println("Contents:");
-      Serial.println(packetBuffer);
+    if(debug2) {
+      // Packet already has new line
+      unsigned long now = millis();
+
+      Serial.print(now);
+      Serial.print(" ");
+      Serial.print(packetBuffer);
     }
  
     // Break the message into components.
@@ -84,12 +90,12 @@ bool YDtoN2kUDP::readYD(tN2kMsg &msgout)
                 word && i < maxwords;
                 word = strtok_r(NULL, sep, &lasts), i++) {
         strncpy(words[i], word, maxlen - 1);
-        if(debug) {
+        if(debug2) {
             Serial.printf(" (%d) %s", i, word);
         }
     }
 
-    if(debug) {
+    if(debug2) {
         Serial.println();
         Serial.printf("Len %d\n", i);
     }
@@ -117,6 +123,9 @@ bool YDtoN2kUDP::readYD(tN2kMsg &msgout)
       msgout.DataLen = len;
       for(int j = 0; j < len; j++) {
         msgout.Data[j] = strtoul((const char *)words[j+3], NULL, 16) & 0xff;
+    }
+    if(debug) {
+      Serial.printf("SRC %d PGN %d\n", source, PGN);
     }
     hadpacket = true;
     }

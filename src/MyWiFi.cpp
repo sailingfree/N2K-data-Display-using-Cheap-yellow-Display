@@ -34,10 +34,14 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <map>
 
+#include <sdcard.h>
+#include <SdFat.h>
+
 // HTML strings
 #include <html/style.html>  // Must come before the content files
 #include <html/login.html>
 #include <html/server_index.html>
+#include <html/index.html>
 
 // Map for received n2k messages. Logs the PGN and the count
 std::map<int, int> N2kMsgMap;
@@ -124,7 +128,8 @@ bool connectWifi() {
                 msg += WifiIP;
                 displayText((char*)msg.c_str());
                 return true;
-            } else {
+            }
+            else {
                 Console->printf("Can't connect to %s\n", wifiCreds[i].ssid.c_str());
             }
         }
@@ -179,7 +184,8 @@ void wifiSetup(String& host_name) {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Failed to connect to WiFi please check creds");
         displayText("Can't connect to wifi please check creds");
-    } else {
+    }
+    else {
         Serial.println("WiFi connected..!");
         Serial.print("Got IP: ");
         Serial.println(WiFi.localIP());
@@ -187,7 +193,8 @@ void wifiSetup(String& host_name) {
         if (MDNS.begin(host_name.c_str())) {
             Console->print("* MDNS responder started. Hostname -> ");
             Console->println(host_name);
-        } else {
+        }
+        else {
             Console->printf("Failed to start the MDNS respondern");
         }
 
@@ -212,49 +219,76 @@ void webServerSetup(void) {
     if (WiFi.status() == WL_CONNECTED) {
         Serial.println("Web server started");
         displayText("Web Server started");
+
         server.on("/", HTTP_GET, []() {
+            server.send(200, "text/html", index_html + index_html);
             server.sendHeader("Connection", "close");
-            server.send(200, "text/html", loginIndex);
-        });
+            });
+
         server.on("/serverIndex", HTTP_GET, []() {
             server.sendHeader("Connection", "close");
             server.send(200, "text/html", serverIndex);
-        });
-        /*handling uploading firmware file */
-        server.on("/", HTTP_GET, []() {
+            });
+
+        // Handle downloading a logfile
+        server.on("/download", HTTP_GET, []() {
+            // Default logfile is the current one
+            String logname("logfile.txt");
+
+            int nargs = server.args();
+            Serial.printf("There are %d args\n", nargs);
+            for(int i = 0; i < nargs; i++) {
+                String argname = server.argName(i);
+                String arg = server.arg(i);
+                Serial.printf("Arg %d => %s = %s\n", i, argname.c_str(), arg.c_str());
+                if(argname == "file") {
+                    logname = arg;
+                }
+            }
+
+            if (!file.open(logname.c_str(), O_RDWR)) {
+                errorPrint("Reading logfile\n");
+                server.send(404, "application/octet-stream", "No such file");
+            }
+            else {
+                Serial.printf("Downloading logfile %s\n", logname.c_str());
+                uint32_t filesize = file.size();
+                Serial.printf("Opened... %d bytes\n", filesize);
+
+                char* buf;
+                const size_t bsize = 8192;
+                buf = (char*)malloc(bsize);
+                if (!buf) {
+                    Serial.printf("Cannot allocate %d bytes for download\n", 8192);
+                }
+                else {
+                    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+                    server.sendHeader("Content-Type", "application/octet-stream");
+                    server.sendHeader("Content-Disposition", "attachment; filename=logfile.txt");
+                    server.send(200, "application/octet-stream", "");
+                    
+                    ulong start = micros();
+                    uint32_t count =0;
+                    int c;
+                    do {
+                        c = file.readBytes(buf, bsize);  
+                        //memset(buf,'$', bsize); if(count > 819200) {c = 0;} else {c = bsize;}
+                        server.sendContent(buf, c); 
+                        count += c;
+                    } while (c);
+                    ulong now = micros();
+                    Serial.printf("Read %d bytes in %d usecs = %.2f kbytes/sec\n", 
+                        count, now - start, (float)count / ((now - start) / 1000.0));
+                    file.close();
+                    free(buf);
+                }
+            }
+
             server.sendHeader("Connection", "close");
-            server.send(200, "text/html", loginIndex);
-        });
-        server.on("/serverIndex", HTTP_GET, []() {
-            server.sendHeader("Connection", "close");
-            server.send(200, "text/html", serverIndex);
-        });
-        /*handling uploading firmware file */
-        server.on(
-            "/update", HTTP_POST, []() {
-    server.sendHeader("Connection", "close");
-    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-    ESP.restart(); }, []() {
-    HTTPUpload& upload = server.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      Serial.printf("Update: %s\n", upload.filename.c_str());
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
-        Update.printError(Serial);
-      }
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      /* flashing firmware to ESP*/
-      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-        Update.printError(Serial);
-      }
-    } else if (upload.status == UPLOAD_FILE_END) {
-      if (Update.end(true)) { //true to set the size to the current progress
-        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-      } else {
-        Update.printError(Serial);
-      }
-    } });
-        sleep(2);
-        server.begin();
+            });
+
+                    delay(10);
+                    server.begin();
     }
 }
 
@@ -264,7 +298,7 @@ void webServerWork() {
     }
 }
 
-// loop reading the YD data, decode the N2K messages
+// Read the YD data, decode the N2K messages
 // and update the screen copies.
 void wifiWork(void) {
     tN2kMsg msg;

@@ -38,6 +38,12 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // Storage
 #include <sdcard.h>
 
+// Logging
+#include <GwLogger.h>
+
+// PGN and time handler
+#include <handlePGN.h>
+
 // Define the console to output to serial at startup.
 // this can get changed later, eg in the gwshell.
 Stream *Console = &Serial;
@@ -47,24 +53,27 @@ void setup() {
     // set up serial debug
     Serial.begin(115200);
 
-    sdcard_setup();
 
     adminSetup();          // Should be called first to setup preferences etc
     metersSetup();         // Graphics setup
     wifiSetup(host_name);  // Conect to an AP for the YD data
     webServerSetup();      // remote management
     displayText("Web server started...");
-
+    sdcard_setup();
+    setup_logging();
     // Finally load the first working screen
     loadScreen();
+    Serial.println("Setup done...");
 }
 
 // loop calling the work functions
 void loop(void) {
+
     adminWork();
     wifiWork();
     webServerWork();
     metersWork();
     wifiCheck();
+    updateTime();
     delay(50);
 }
