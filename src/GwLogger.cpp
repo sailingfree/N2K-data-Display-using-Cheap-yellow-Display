@@ -3,12 +3,45 @@
 #include <Arduino.h>
 #include <GwLogger.h>
 
+// Logfile name for the current operations
 static String logname;
 
+// How many old versions to keep
+static const uint16_t maxlogs = 10;
+
+// The logfile base name
+String logbase = "logfile";
+
+// The suffix. .txt works when reading on windows PCs
+String logsuffix = ".txt";
+
+// Rotae the logs, losing the oldest and renaming the remaing files
+// so the oldest has the highest number
+void rotateLogs() {
+  String f1, f2;
+
+  // remove the oldest file
+  f1 = logbase + maxlogs + logsuffix;
+  if(sd.exists(f1)) {
+    sd.remove(f1);
+  }
+
+// rename the old logs moving them to their next highest number
+  for(uint16_t i = maxlogs; i > 1; i--) {
+    f1 = logbase + i + logsuffix;
+    f2 = logbase + (i-1) + logsuffix;
+    if(sd.exists(f2)) {
+      sd.rename(f2, f1);
+      Serial.printf("Renaming %s to %s\n", f2.c_str() , f1.c_str());
+    }
+  }
+  // rename the old log with 1st sequence
+  sd.rename(logbase + logsuffix, logbase + 1 + logsuffix);
+}
+
 void setup_logging(void) {
-    logname = "logfile";
-    logname += time(NULL);
-    logname += ".txt";
+    rotateLogs();
+    logname = logbase + logsuffix;
 
     if(!hasSdCard()) {
       return;
@@ -24,11 +57,7 @@ void setup_logging(void) {
 }
 
 void append_log(const char * msg) {
-    String txt("");
-    txt += (uint32_t) millis();
-    txt += msg;
-
-    if(!hasSdCard()) {
+     if(!hasSdCard()) {
       return;
     }
 
@@ -37,17 +66,17 @@ void append_log(const char * msg) {
         return;
     }
 
-  file.println(txt);
+  file.println(msg);
   file.close();
   file.sync();
 }
 
-void read_log(Stream & s) {
+void read_log(String &log, Stream & s) {
     if(!hasSdCard()) {
       return;
     }
     
-    if (!file.open(logname.c_str(), O_RDWR)) {
+    if (!file.open(log.c_str(), O_RDWR)) {
         errorPrint("Updating logfile");
         return;
     }
