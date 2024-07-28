@@ -1,0 +1,108 @@
+#include <Arduino.h>
+
+#include <WiFi.h>
+
+#include <AsyncTCP.h>
+#include <ESPAsyncWebserver.h>
+
+#include <tftscreen.h>
+
+#include <StringStream.h>
+
+#include <sdcard.h>
+#include <SdFat.h>
+#include <SysInfo.h>
+
+// HTML strings
+#include <html/style.html>  // Must come before the content files
+#include <html/index.html>
+#include <html/login.html>
+#include <html/server_index.html>
+
+
+// The web server
+AsyncWebServer server(80);
+
+// Web server
+void webServerSetup(void) {
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("Web server started");
+        displayText("Web Server started");
+
+        server.on("/", HTTP_POST, [](AsyncWebServerRequest* request) {
+            Serial.printf("POST on /\n");
+            request->send(200, "text/plain", "hello post");
+            });
+
+        server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+            request->send(200, "text/html", style +
+                head_html +
+                index_html +
+                nav +
+                footer_html);
+            //  request->sendHeader("Connection", "close");
+            });
+
+        server.on("/system", HTTP_GET, [](AsyncWebServerRequest* request) {
+            StringStream net, sys, msgs;
+            getNetInfo(net);
+            getSysInfo(sys);
+            getN2kMsgs(msgs);
+            //    request->sendHeader("Connection", "close");
+            request->send(200, "text/html", style +
+                head_html +
+                "<h1>System</h1>" +
+                "<pre>" +
+                net.data +
+                sys.data +
+                msgs.data +
+                "</pre>" +
+                nav +
+                footer_html);
+            });
+
+        // Handle downloading a logfile
+        server.on("/download", HTTP_GET, [](AsyncWebServerRequest* request) {
+            // Default logfile is the current one
+            String logname("logfile.txt");
+
+            if (!request->hasParam("file")) {
+                request->send(404, "application/octet-stream", "No file specified");
+            }
+            else {
+                logname = request->getParam("file")->value();
+                FsFile f;
+                if (!(f = sd.open(logname.c_str(), O_RDWR))) {
+                    Serial.printf("No such logfile %s\n", logname.c_str());
+                    request->send(404, "application/octet-stream", "No such file");
+                }
+                else {
+                    Serial.printf("Downloading logfile %s\n", logname.c_str());
+                    uint32_t filesize = file.size();
+                    Serial.printf("Opened... %d bytes\n", filesize);
+
+                    ulong start = micros();
+//                    request->send("application/octet-stream", 2048, [](uint8_t* buffer, size_t maxlen, size_t index) -> size_t {
+//                        Serial.printf("Requesting %d bytes\n", maxlen);
+//                        return file.readBytes(buffer, maxlen);
+//                    });
+
+                    request->send(f, logname.c_str());
+                    ulong now = micros();
+                    Serial.printf("Read %d bytes in %d usecs = %.2f kbytes/sec\n",
+                        filesize, now - start, (float)filesize / ((now - start) / 1000.0));
+                    file.close();
+                }
+            }
+            });
+
+        delay(10);
+        server.begin();
+    }
+}
+
+void webServerWork() {
+    //    if (WiFi.status() == WL_CONNECTED) {
+     //       server.handleClient();
+     //   }
+}

@@ -27,7 +27,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <SysInfo.h>
 #include <TFT_eSPI.h>
 #include <lvgl.h>
-#include <rotary_encoder.h>
+//#include <rotary_encoder.h>
 #include <tftscreen.h>
 #include <NMEA2000.h>
 #include <N2kMessages.h>
@@ -88,6 +88,7 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
     lv_disp_flush_ready(disp);
 }
 
+#if 0
 /*
  * Read the input rotary encoder
  * Read the value and the button state
@@ -107,6 +108,8 @@ bool read_encoder(lv_indev_drv_t *indev, lv_indev_data_t *data) {
     }
     return false;  // Never any more data epected from this device
 }
+
+#endif
 
 // Static data items for the screens and their data items
 static Indicator *ind[SCR_MAX][6];
@@ -236,7 +239,7 @@ void touch_init() {
 }
 
 void metersSetup() {
-    rotary_setup();
+//    rotary_setup();
     lv_init();
 #if USE_LV_LOG != 0
     lv_log_register_print_cb(my_print); /* register print function for debugging */
@@ -266,11 +269,11 @@ void metersSetup() {
     displayText("Initialising screens...");
 
     /*Initialize the rotary encoder input device drivers */
-    lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_ENCODER;
-    indev_drv.read_cb = read_encoder;
-    lv_indev_t *rotary = lv_indev_drv_register(&indev_drv);
+//    lv_indev_drv_t indev_drv;
+//    lv_indev_drv_init(&indev_drv);
+//    indev_drv.type = LV_INDEV_TYPE_ENCODER;
+//    indev_drv.read_cb = read_encoder;
+//    lv_indev_t *rotary = lv_indev_drv_register(&indev_drv);
 
     // Create the group for the rotary
     lv_group_t *g = lv_group_create();

@@ -29,6 +29,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <esp_wifi.h>
 
 #include "uptime_formatter.h"
+#include <Version.h>
 
 // Format the network information and send to the configured stream
 void getNetInfo(Stream &s) {
@@ -62,7 +63,10 @@ void getSysInfo(Stream &s) {
     uint64_t efuse = esp.getEfuseMac();
     String uptime = uptime_formatter::getUptime();
 
+
     s.println("=========== SYSTEM ==========");
+    s.printf("Version\t\t%s\n", VERSION);
+    s.printf("Date\t\t%s\n", BUILD_TIMESTAMP);
     s.printf("Model\t\t%s\n", Model.c_str());
     s.printf("Uptime\t\t%s", uptime.c_str());
     s.printf("Heap\t%d\n", heap);
