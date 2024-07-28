@@ -47,8 +47,3 @@ void wifiCheck(void);
 // Do some work with the network
 void wifiWork(void);
 
-// Init the web server.
-void webServerSetup(void);
-
-// Do some work with the web server
-void webServerWork();

@@ -32,6 +32,9 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // WiFI handling
 #include <MyWiFi.h>
 
+// The web server
+#include <MyWebServer.h>
+
 // Admin functions setup
 #include <MyAdmin.h>
 

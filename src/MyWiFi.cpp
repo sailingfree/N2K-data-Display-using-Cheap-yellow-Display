@@ -27,7 +27,6 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <GwPrefs.h>
 #include <MyWiFi.h>
 #include <StringStream.h>
-#include <WebServer.h>
 #include <YDtoN2KUDP.h>
 #include <handlePGN.h>
 #include <tftscreen.h>
@@ -36,12 +35,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <sdcard.h>
 #include <SdFat.h>
-
-// HTML strings
-#include <html/style.html>  // Must come before the content files
-#include <html/login.html>
-#include <html/server_index.html>
-#include <html/index.html>
+#include <SysInfo.h>
 
 // Map for received n2k messages. Logs the PGN and the count
 std::map<int, int> N2kMsgMap;
@@ -65,9 +59,6 @@ Gw_WiFi_Mode wifiType = WiFi_AP;
 String WifiMode = "Unknown";
 String WifiSSID = "Unknown";
 String WifiIP = "Unknown";
-
-// The web server
-WebServer server(80);
 
 // The UDP yacht data reader
 YDtoN2kUDP ydtoN2kUDP;
@@ -211,90 +202,6 @@ void wifiSetup(String& host_name) {
 
         // Start the OTA service
         initializeOTA(Console);
-    }
-}
-
-// Web server
-void webServerSetup(void) {
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("Web server started");
-        displayText("Web Server started");
-
-        server.on("/", HTTP_GET, []() {
-            server.send(200, "text/html", index_html + index_html);
-            server.sendHeader("Connection", "close");
-            });
-
-        server.on("/serverIndex", HTTP_GET, []() {
-            server.sendHeader("Connection", "close");
-            server.send(200, "text/html", serverIndex);
-            });
-
-        // Handle downloading a logfile
-        server.on("/download", HTTP_GET, []() {
-            // Default logfile is the current one
-            String logname("logfile.txt");
-
-            int nargs = server.args();
-            Serial.printf("There are %d args\n", nargs);
-            for(int i = 0; i < nargs; i++) {
-                String argname = server.argName(i);
-                String arg = server.arg(i);
-                Serial.printf("Arg %d => %s = %s\n", i, argname.c_str(), arg.c_str());
-                if(argname == "file") {
-                    logname = arg;
-                }
-            }
-
-            if (!file.open(logname.c_str(), O_RDWR)) {
-                errorPrint("Reading logfile\n");
-                server.send(404, "application/octet-stream", "No such file");
-            }
-            else {
-                Serial.printf("Downloading logfile %s\n", logname.c_str());
-                uint32_t filesize = file.size();
-                Serial.printf("Opened... %d bytes\n", filesize);
-
-                char* buf;
-                const size_t bsize = 8192;
-                buf = (char*)malloc(bsize);
-                if (!buf) {
-                    Serial.printf("Cannot allocate %d bytes for download\n", 8192);
-                }
-                else {
-                    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-                    server.sendHeader("Content-Type", "application/octet-stream");
-                    server.sendHeader("Content-Disposition", "attachment; filename=logfile.txt");
-                    server.send(200, "application/octet-stream", "");
-                    
-                    ulong start = micros();
-                    uint32_t count =0;
-                    int c;
-                    do {
-                        c = file.readBytes(buf, bsize);  
-                        //memset(buf,'$', bsize); if(count > 819200) {c = 0;} else {c = bsize;}
-                        server.sendContent(buf, c); 
-                        count += c;
-                    } while (c);
-                    ulong now = micros();
-                    Serial.printf("Read %d bytes in %d usecs = %.2f kbytes/sec\n", 
-                        count, now - start, (float)count / ((now - start) / 1000.0));
-                    file.close();
-                    free(buf);
-                }
-            }
-
-            server.sendHeader("Connection", "close");
-            });
-
-                    delay(10);
-                    server.begin();
-    }
-}
-
-void webServerWork() {
-    if (WiFi.status() == WL_CONNECTED) {
-        server.handleClient();
     }
 }
 
